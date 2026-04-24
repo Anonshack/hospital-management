@@ -7,7 +7,7 @@ import DashboardPage from './pages/DashboardPage'
 import AppointmentsPage from './pages/AppointmentsPage'
 import BookAppointmentPage from './pages/BookAppointmentPage'
 import PatientsPage from './pages/PatientsPage'
-import DoctorsPage from './pages/DoctorsPage'
+import DoctorsListPage from './pages/DoctorsListPage'
 import MedicalRecordsPage from './pages/MedicalRecordsPage'
 import BillingPage from './pages/BillingPage'
 import DepartmentsPage from './pages/DepartmentsPage'
@@ -63,7 +63,7 @@ export default function App() {
         } />
         <Route path="doctors" element={
           <PrivateRoute roles={['admin', 'receptionist', 'nurse', 'patient']}>
-            <DoctorsPage />
+            <DoctorsListPage />
           </PrivateRoute>
         } />
         <Route path="departments" element={
