@@ -194,6 +194,22 @@ class UserViewSet(viewsets.ModelViewSet):
         context['request'] = self.request
         return context
 
+    def create(self, request, *args, **kwargs):
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        serializer = self.get_serializer(data=request.data)
+        try:
+            serializer.is_valid(raise_exception=True)
+            self.perform_create(serializer)
+            headers = self.get_success_headers(serializer.data)
+            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        except Exception as e:
+            logger.error(f"User creation error: {str(e)}", exc_info=True)
+            if hasattr(e, 'detail'):
+                logger.error(f"Validation errors: {e.detail}")
+            raise
+
     @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
     def me(self, request):
         serializer = UserProfileSerializer(request.user, context={'request': request})
@@ -205,6 +221,14 @@ class UserViewSet(viewsets.ModelViewSet):
         user.is_active = not user.is_active
         user.save()
         status_text = 'activated' if user.is_active else 'deactivated'
+        return Response({'message': f'User {status_text} successfully.'})
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAdmin])
+    def verify(self, request, pk=None):
+        user = self.get_object()
+        user.is_verified = not user.is_verified
+        user.save()
+        status_text = 'verified' if user.is_verified else 'unverified'
         return Response({'message': f'User {status_text} successfully.'})
 
     @action(detail=False, methods=['get'], permission_classes=[IsAdmin])

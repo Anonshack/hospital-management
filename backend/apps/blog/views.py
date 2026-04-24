@@ -31,7 +31,7 @@ class PostViewSet(viewsets.ModelViewSet):
         if user.role not in [User.Role.DOCTOR, User.Role.ADMIN]:
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("Only doctors and admins can create blog posts.")
-        serializer.save(author=user)
+        serializer.save(author=user, is_published=True)
 
     def update(self, request, *args, **kwargs):
         post = self.get_object()

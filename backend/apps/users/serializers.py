@@ -81,6 +81,7 @@ class AdminCreateUserSerializer(serializers.ModelSerializer):
     """
     password = serializers.CharField(write_only=True, required=True)
     avatar = serializers.ImageField(required=False, allow_null=True)
+    gender = serializers.ChoiceField(choices=['male', 'female'], required=False, default='male')
 
     # Doctor-specific fields (passed as extra data, not model fields)
     specialization = serializers.CharField(required=False, allow_blank=True)
@@ -94,14 +95,14 @@ class AdminCreateUserSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'email', 'username', 'first_name', 'last_name',
-            'phone', 'role', 'password', 'avatar',
-            # doctor extras
+            'phone', 'role', 'password', 'avatar', 'gender',
             'specialization', 'experience_years', 'consultation_fee',
             'license_number', 'bio', 'department',
         ]
         extra_kwargs = {
             'first_name': {'required': True},
             'last_name': {'required': True},
+            'username': {'required': False, 'allow_blank': True},
         }
 
     def validate_role(self, value):
@@ -109,46 +110,85 @@ class AdminCreateUserSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Cannot create another admin via this endpoint.")
         return value
 
+    def validate_email(self, value):
+        if User.objects.filter(email__iexact=value).exists():
+            raise serializers.ValidationError("Bu email allaqachon ro'yxatdan o'tgan.")
+        return value.lower()
+
+    def _unique_username(self, base):
+        """Generate a unique username from base string."""
+        import re
+        base = re.sub(r'[^\w]', '', base.split('@')[0])[:20] or 'user'
+        username = base
+        counter = 1
+        while User.objects.filter(username=username).exists():
+            username = f"{base}{counter}"
+            counter += 1
+        return username
+
     def create(self, validated_data):
-        # Extract doctor-specific fields
+        from django.db import transaction, IntegrityError
+        
         specialization = validated_data.pop('specialization', '')
         experience_years = validated_data.pop('experience_years', 0)
         consultation_fee = validated_data.pop('consultation_fee', 0)
         license_number = validated_data.pop('license_number', '')
         bio = validated_data.pop('bio', '')
         department_id = validated_data.pop('department', None)
-
+        gender = validated_data.pop('gender', 'male')
         password = validated_data.pop('password')
-        user = User(**validated_data)
-        user.set_password(password)
-        user.is_verified = True  # Staff accounts pre-verified
-        user.save()
 
-        # Auto-create doctor profile
-        if user.role == User.Role.DOCTOR:
-            from apps.doctors.models import Doctor
-            doctor_kwargs = {
-                'specialization': specialization or 'General Medicine',
-                'experience_years': experience_years or 0,
-                'consultation_fee': consultation_fee or 0,
-                'license_number': license_number or '',
-                'bio': bio or '',
-                'is_available': True,
-            }
-            if department_id:
-                from apps.departments.models import Department
-                try:
-                    doctor_kwargs['department'] = Department.objects.get(id=department_id)
-                except Department.DoesNotExist:
-                    pass
-            Doctor.objects.create(user=user, **doctor_kwargs)
+        # Always auto-generate unique username
+        email = validated_data.get('email', '')
+        validated_data['username'] = self._unique_username(email)
 
-        # Auto-create patient profile if patient
-        elif user.role == User.Role.PATIENT:
-            from apps.patients.models import Patient
-            Patient.objects.get_or_create(user=user)
+        sid = transaction.savepoint()
+        try:
+            user = User(**validated_data)
+            user.gender = gender
+            user.set_password(password)
+            user.is_verified = True
+            user.save()
 
-        return user
+            if user.role == User.Role.DOCTOR:
+                from apps.doctors.models import Doctor
+                
+                doctor_kwargs = {
+                    'specialization': specialization or 'General Medicine',
+                    'experience_years': experience_years or 0,
+                    'consultation_fee': consultation_fee or 0,
+                    'license_number': license_number or '',
+                    'bio': bio or '',
+                    'is_available': True,
+                }
+                if department_id:
+                    from apps.departments.models import Department
+                    try:
+                        doctor_kwargs['department'] = Department.objects.get(id=department_id)
+                    except Department.DoesNotExist:
+                        pass
+                
+                # Use get_or_create to avoid duplicate
+                doctor, created = Doctor.objects.get_or_create(user=user, defaults=doctor_kwargs)
+                if not created:
+                    # Update existing doctor profile
+                    for key, value in doctor_kwargs.items():
+                        setattr(doctor, key, value)
+                    doctor.save()
+
+            elif user.role == User.Role.PATIENT:
+                from apps.patients.models import Patient
+                Patient.objects.get_or_create(user=user)
+
+            transaction.savepoint_commit(sid)
+            return user
+            
+        except IntegrityError as e:
+            transaction.savepoint_rollback(sid)
+            raise serializers.ValidationError({"detail": "Ma'lumotlar bazasida xatolik. Iltimos qaytadan urinib ko'ring."})
+        except Exception as e:
+            transaction.savepoint_rollback(sid)
+            raise serializers.ValidationError({"detail": f"Xatolik: {str(e)}"})
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
@@ -162,7 +202,11 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'full_name', 'phone', 'avatar', 'avatar_url', 'role',
             'is_verified', 'is_active', 'created_at', 'updated_at',
         ]
-        read_only_fields = ['id', 'email', 'role', 'is_verified', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'role', 'is_verified', 'created_at', 'updated_at']
+        extra_kwargs = {
+            'username': {'required': False},
+            'email': {'required': False},
+        }
 
     def get_full_name(self, obj):
         return obj.get_full_name()
@@ -173,6 +217,17 @@ class UserProfileSerializer(serializers.ModelSerializer):
             if request:
                 return request.build_absolute_uri(obj.avatar.url)
         return None
+
+    def update(self, instance, validated_data):
+        # If email changed, ensure uniqueness
+        new_email = validated_data.get('email')
+        if new_email and new_email != instance.email:
+            if User.objects.filter(email__iexact=new_email).exclude(pk=instance.pk).exists():
+                raise serializers.ValidationError({'email': 'Bu email allaqachon ishlatilmoqda.'})
+        # Auto-fix username if not provided or conflicts
+        if 'username' not in validated_data or not validated_data.get('username'):
+            pass  # keep existing
+        return super().update(instance, validated_data)
 
 
 class ChangePasswordSerializer(serializers.Serializer):

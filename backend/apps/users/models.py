@@ -58,6 +58,17 @@ class User(AbstractUser):
         null=True,
     )
 
+    class Gender(models.TextChoices):
+        MALE = 'male', _('Male')
+        FEMALE = 'female', _('Female')
+
+    gender = models.CharField(
+        max_length=10,
+        choices=Gender.choices,
+        default=Gender.MALE,
+        blank=True,
+    )
+
     # Verification
     is_verified = models.BooleanField(default=False)
     verification_token = models.UUIDField(default=uuid.uuid4, editable=False)

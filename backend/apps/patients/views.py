@@ -55,7 +55,7 @@ class PatientViewSet(viewsets.ModelViewSet):
 
     def list(self, request, *args, **kwargs):
         user = request.user
-        if user.role == User.Role.PATIENT:
+        if user.role not in [User.Role.ADMIN, User.Role.DOCTOR, User.Role.NURSE, User.Role.RECEPTIONIST]:
             return Response({'error': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
         return super().list(request, *args, **kwargs)
 
