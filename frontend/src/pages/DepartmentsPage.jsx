@@ -1,10 +1,10 @@
 // DepartmentsPage.jsx
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Building2, Plus, Pencil, Trash2 } from 'lucide-react'
+import { Building2, Plus, Pencil, Trash2, Users, MapPin, Phone, Stethoscope, X } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
-import { departmentsAPI } from '../services/api'
+import { departmentsAPI, doctorsAPI } from '../services/api'
 import useAuthStore from '../store/authStore'
 import { LoadingPage, EmptyState, Modal, FormField, ConfirmDialog } from '../components/common/UI'
 
@@ -14,10 +14,17 @@ export function DepartmentsPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
+  const [selectedDept, setSelectedDept] = useState(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ['departments'],
     queryFn: () => departmentsAPI.list().then(r => r.data.results || r.data),
+  })
+
+  const { data: deptDoctors, isLoading: loadingDoctors } = useQuery({
+    queryKey: ['dept-doctors', selectedDept?.id],
+    queryFn: () => doctorsAPI.list({ department: selectedDept.id }).then(r => r.data.results || r.data),
+    enabled: !!selectedDept,
   })
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm()
@@ -61,19 +68,28 @@ export function DepartmentsPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {departments.map(dept => (
-            <div key={dept.id} className="glass-card p-5 hover:border-slate-600/60 transition-all">
+            <div 
+              key={dept.id} 
+              onClick={() => setSelectedDept(dept)}
+              className="glass-card p-5 hover:border-primary-500/30 transition-all cursor-pointer group"
+            >
               <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-blue-500/15 rounded-xl flex items-center justify-center border border-blue-500/20">
-                    <Building2 size={18} className="text-blue-400" />
+                <div className="flex items-center gap-3 flex-1">
+                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center border border-blue-400/20 group-hover:scale-105 transition-transform">
+                    <Building2 size={22} className="text-white" />
                   </div>
-                  <div>
-                    <p className="text-white font-semibold">{dept.name}</p>
-                    <p className="text-xs text-slate-500">{dept.doctor_count} doctors</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white font-semibold text-base truncate">{dept.name}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xs text-slate-400 flex items-center gap-1">
+                        <Users size={12} />
+                        {dept.doctor_count} doktor
+                      </span>
+                    </div>
                   </div>
                 </div>
                 {user?.role === 'admin' && (
-                  <div className="flex gap-1">
+                  <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                     <button onClick={() => openEdit(dept)} className="p-1.5 text-slate-500 hover:text-primary-400 hover:bg-primary-400/10 rounded-lg transition-all">
                       <Pencil size={13} />
                     </button>
@@ -83,9 +99,25 @@ export function DepartmentsPage() {
                   </div>
                 )}
               </div>
-              {dept.description && <p className="text-sm text-slate-400 line-clamp-2">{dept.description}</p>}
-              {dept.location && <p className="text-xs text-slate-500 mt-2">📍 {dept.location}</p>}
-              {dept.head_doctor_name && <p className="text-xs text-primary-400 mt-1">Head: {dept.head_doctor_name}</p>}
+              
+              {dept.description && (
+                <p className="text-sm text-slate-400 line-clamp-2 mb-3">{dept.description}</p>
+              )}
+              
+              <div className="space-y-1.5 pt-3 border-t border-slate-700/40">
+                {dept.location && (
+                  <div className="flex items-center gap-2 text-xs text-slate-500">
+                    <MapPin size={13} className="flex-shrink-0" />
+                    <span className="truncate">{dept.location}</span>
+                  </div>
+                )}
+                {dept.contact_number && (
+                  <div className="flex items-center gap-2 text-xs text-slate-500">
+                    <Phone size={13} className="flex-shrink-0" />
+                    <span>{dept.contact_number}</span>
+                  </div>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -122,6 +154,92 @@ export function DepartmentsPage() {
         message={`Are you sure you want to delete "${deleteTarget?.name}"? This cannot be undone.`}
         confirmLabel="Delete"
       />
+
+      {/* Department Detail Modal */}
+      {selectedDept && (
+        <Modal open={!!selectedDept} onClose={() => setSelectedDept(null)} title="Bo'lim Ma'lumotlari" size="lg">
+          <div className="space-y-6">
+            {/* Header */}
+            <div className="flex items-start gap-4">
+              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center border border-blue-400/20 flex-shrink-0">
+                <Building2 size={28} className="text-white" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-xl font-semibold text-white">{selectedDept.name}</h3>
+                {selectedDept.description && (
+                  <p className="text-slate-400 mt-2 text-sm leading-relaxed">{selectedDept.description}</p>
+                )}
+              </div>
+            </div>
+
+            {/* Info Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {selectedDept.location && (
+                <div className="flex items-center gap-3 p-3 bg-slate-800/40 rounded-xl border border-slate-700/40">
+                  <MapPin size={18} className="text-blue-400 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-xs text-slate-500">Joylashuv</p>
+                    <p className="text-sm text-slate-200 truncate">{selectedDept.location}</p>
+                  </div>
+                </div>
+              )}
+              
+              {selectedDept.contact_number && (
+                <div className="flex items-center gap-3 p-3 bg-slate-800/40 rounded-xl border border-slate-700/40">
+                  <Phone size={18} className="text-emerald-400 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-xs text-slate-500">Telefon</p>
+                    <p className="text-sm text-slate-200">{selectedDept.contact_number}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Doctors List */}
+            <div className="p-4 bg-slate-800/40 rounded-xl border border-slate-700/40">
+              <h4 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+                <Stethoscope size={16} className="text-primary-400" />
+                Doktorlar ({selectedDept.doctor_count})
+              </h4>
+              
+              {loadingDoctors ? (
+                <div className="text-center py-4 text-slate-400 text-sm">Yuklanmoqda...</div>
+              ) : !deptDoctors || deptDoctors.length === 0 ? (
+                <div className="text-center py-4 text-slate-500 text-sm">Bu bo'limda doktorlar yo'q</div>
+              ) : (
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {deptDoctors.map(doctor => (
+                    <div key={doctor.id} className="flex items-center gap-3 p-3 bg-slate-900/40 rounded-lg hover:bg-slate-900/60 transition-colors">
+                      {doctor.avatar ? (
+                        <img src={doctor.avatar} className="w-10 h-10 rounded-lg object-cover flex-shrink-0" alt={doctor.full_name} />
+                      ) : (
+                        <div className="w-10 h-10 rounded-lg bg-primary-600/20 flex items-center justify-center flex-shrink-0">
+                          <Stethoscope size={18} className="text-primary-400" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-200 truncate">{doctor.full_name}</p>
+                        <p className="text-xs text-slate-400 truncate">{doctor.specialization}</p>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-xs text-slate-500">{doctor.experience_years} yil</p>
+                        <p className="text-xs text-emerald-400">${doctor.consultation_fee}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <button 
+              onClick={() => setSelectedDept(null)} 
+              className="btn-secondary w-full justify-center"
+            >
+              Yopish
+            </button>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }

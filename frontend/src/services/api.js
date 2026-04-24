@@ -143,6 +143,7 @@ export const usersAPI = {
   delete: (id) => api.delete(`/users/${id}/`),
   activate: (id) => api.post(`/users/${id}/activate/`),
   verify: (id) => api.post(`/users/${id}/verify/`),
+  promoteToAdmin: (id) => api.post(`/users/${id}/promote_to_admin/`),
   statistics: () => api.get('/users/statistics/'),
 }
 

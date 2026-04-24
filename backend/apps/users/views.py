@@ -210,6 +210,46 @@ class UserViewSet(viewsets.ModelViewSet):
                 logger.error(f"Validation errors: {e.detail}")
             raise
 
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        
+        # Update user fields
+        user_data = {}
+        for field in ['first_name', 'last_name', 'email', 'phone', 'username']:
+            if field in request.data:
+                user_data[field] = request.data[field]
+        
+        if 'avatar' in request.FILES:
+            user_data['avatar'] = request.FILES['avatar']
+        
+        for key, value in user_data.items():
+            setattr(instance, key, value)
+        instance.save()
+        
+        # Update doctor profile if exists
+        if instance.role == User.Role.DOCTOR and hasattr(instance, 'doctor_profile'):
+            from apps.doctors.models import Doctor
+            doctor = instance.doctor_profile
+            
+            doctor_fields = ['specialization', 'experience_years', 'consultation_fee', 
+                           'license_number', 'bio', 'department']
+            for field in doctor_fields:
+                if field in request.data:
+                    if field == 'department':
+                        from apps.departments.models import Department
+                        try:
+                            dept = Department.objects.get(id=request.data[field])
+                            doctor.department = dept
+                        except (Department.DoesNotExist, ValueError):
+                            pass
+                    else:
+                        setattr(doctor, field, request.data[field])
+            doctor.save()
+        
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
     @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
     def me(self, request):
         serializer = UserProfileSerializer(request.user, context={'request': request})
@@ -230,6 +270,19 @@ class UserViewSet(viewsets.ModelViewSet):
         user.save()
         status_text = 'verified' if user.is_verified else 'unverified'
         return Response({'message': f'User {status_text} successfully.'})
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAdmin])
+    def promote_to_admin(self, request, pk=None):
+        user = self.get_object()
+        if not request.user.is_superuser:
+            return Response({'error': 'Faqat superuser admin tayinlay oladi.'}, status=status.HTTP_403_FORBIDDEN)
+        
+        if user.role == User.Role.ADMIN:
+            return Response({'error': 'Bu user allaqachon admin.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        user.role = User.Role.ADMIN
+        user.save()
+        return Response({'message': f'{user.get_full_name()} admin qilib tayinlandi.'})
 
     @action(detail=False, methods=['get'], permission_classes=[IsAdmin])
     def statistics(self, request):

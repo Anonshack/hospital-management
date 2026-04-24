@@ -106,8 +106,10 @@ class AdminCreateUserSerializer(serializers.ModelSerializer):
         }
 
     def validate_role(self, value):
-        if value == User.Role.ADMIN:
-            raise serializers.ValidationError("Cannot create another admin via this endpoint.")
+        # Only superusers can create admin accounts
+        request = self.context.get('request')
+        if value == User.Role.ADMIN and request and not request.user.is_superuser:
+            raise serializers.ValidationError("Faqat superuser admin yarata oladi.")
         return value
 
     def validate_email(self, value):
@@ -265,12 +267,14 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
 class UserListSerializer(serializers.ModelSerializer):
     full_name = serializers.SerializerMethodField()
     avatar = serializers.SerializerMethodField()
+    doctor_profile = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = [
-            'id', 'email', 'full_name', 'role', 'phone',
-            'is_verified', 'is_active', 'avatar', 'created_at',
+            'id', 'email', 'username', 'first_name', 'last_name', 'full_name', 
+            'role', 'phone', 'gender', 'is_verified', 'is_active', 
+            'avatar', 'created_at', 'doctor_profile',
         ]
 
     def get_full_name(self, obj):
@@ -281,4 +285,17 @@ class UserListSerializer(serializers.ModelSerializer):
             request = self.context.get('request')
             if request:
                 return request.build_absolute_uri(obj.avatar.url)
+        return None
+    
+    def get_doctor_profile(self, obj):
+        if obj.role == 'doctor' and hasattr(obj, 'doctor_profile'):
+            profile = obj.doctor_profile
+            return {
+                'specialization': profile.specialization,
+                'experience_years': profile.experience_years,
+                'consultation_fee': str(profile.consultation_fee),
+                'license_number': profile.license_number,
+                'bio': profile.bio,
+                'department': profile.department_id,
+            }
         return None

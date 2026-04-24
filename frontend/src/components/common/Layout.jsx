@@ -78,14 +78,14 @@ export default function Layout() {
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
       {/* Logo */}
-      <div className={`flex items-center gap-3 px-4 py-5 border-b border-slate-700/50 ${collapsed ? 'justify-center' : ''}`}>
+      <div className={`flex items-center gap-3 px-4 py-5 border-b ${collapsed ? 'justify-center' : ''} ${theme === 'light' ? 'border-slate-200' : 'border-slate-700/50'}`}>
         <div className="w-9 h-9 bg-primary-600 rounded-xl flex items-center justify-center flex-shrink-0">
           <Activity className="w-5 h-5 text-white" />
         </div>
         {!collapsed && (
           <div>
-            <h1 className="text-white font-display font-bold text-base leading-none">MediCore</h1>
-            <p className="text-slate-500 text-xs mt-0.5">HMS</p>
+            <h1 className={`font-display font-bold text-base leading-none ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>MediCore</h1>
+            <p className={`text-xs mt-0.5 ${theme === 'light' ? 'text-slate-500' : 'text-slate-500'}`}>HMS</p>
           </div>
         )}
       </div>
@@ -100,8 +100,12 @@ export default function Layout() {
             className={({ isActive }) =>
               `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group
                ${isActive
-                ? 'bg-primary-600/20 text-primary-300 border border-primary-500/30'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/50'
+                ? theme === 'light' 
+                  ? 'bg-primary-50 text-primary-700 border border-primary-200'
+                  : 'bg-primary-600/20 text-primary-300 border border-primary-500/30'
+                : theme === 'light'
+                  ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/50'
               } ${collapsed ? 'justify-center' : ''}`
             }
           >
@@ -112,22 +116,25 @@ export default function Layout() {
       </nav>
 
       {/* User section */}
-      <div className="px-3 py-4 border-t border-slate-700/50 space-y-1">
+      <div className={`px-3 py-4 border-t space-y-1 ${theme === 'light' ? 'border-slate-200' : 'border-slate-700/50'}`}>
         <NavLink
           to="/profile"
           onClick={() => setMobileOpen(false)}
           className={({ isActive }) =>
             `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200
-             ${isActive ? 'bg-slate-700/60 text-white' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/40'}
+             ${isActive 
+               ? theme === 'light' ? 'bg-slate-100 text-slate-900' : 'bg-slate-700/60 text-white'
+               : theme === 'light' ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-100' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/40'
+             }
              ${collapsed ? 'justify-center' : ''}`
           }
         >
-          <div className="w-7 h-7 bg-slate-600 rounded-lg flex items-center justify-center flex-shrink-0">
+          <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${theme === 'light' ? 'bg-slate-200' : 'bg-slate-600'}`}>
             <User size={14} />
           </div>
           {!collapsed && (
             <div className="flex-1 min-w-0">
-              <p className="text-slate-200 font-medium truncate text-xs">{user?.full_name}</p>
+              <p className={`font-medium truncate text-xs ${theme === 'light' ? 'text-slate-900' : 'text-slate-200'}`}>{user?.full_name}</p>
               <span className={`badge border text-[10px] mt-0.5 ${roleColors[user?.role]}`}>
                 {user?.role}
               </span>
@@ -137,9 +144,10 @@ export default function Layout() {
 
         <button
           onClick={handleLogout}
-          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-slate-400
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm
                       hover:text-red-400 hover:bg-red-500/10 transition-all duration-200
-                      ${collapsed ? 'justify-center' : ''}`}
+                      ${collapsed ? 'justify-center' : ''}
+                      ${theme === 'light' ? 'text-slate-600' : 'text-slate-400'}`}
         >
           <LogOut size={16} className="flex-shrink-0" />
           {!collapsed && <span>Logout</span>}
@@ -149,18 +157,19 @@ export default function Layout() {
   )
 
   return (
-    <div className="flex h-screen bg-slate-950 overflow-hidden">
+    <div className={`flex h-screen overflow-hidden ${theme === 'light' ? 'bg-slate-50' : 'bg-slate-950'}`}>
       {/* Mobile Overlay */}
       {mobileOpen && (
         <div className="fixed inset-0 bg-black/60 z-40 lg:hidden" onClick={() => setMobileOpen(false)} />
       )}
 
       {/* Sidebar - Mobile */}
-      <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 border-r border-slate-700/50
+      <aside className={`fixed inset-y-0 left-0 z-50 w-64 border-r
                          transform transition-transform duration-300 lg:hidden
-                         ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+                         ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
+                         ${theme === 'light' ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-700/50'}`}>
         <div className="absolute top-4 right-4">
-          <button onClick={() => setMobileOpen(false)} className="p-1.5 text-slate-400 hover:text-white">
+          <button onClick={() => setMobileOpen(false)} className={`p-1.5 ${theme === 'light' ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-white'}`}>
             <X size={18} />
           </button>
         </div>
@@ -168,8 +177,9 @@ export default function Layout() {
       </aside>
 
       {/* Sidebar - Desktop */}
-      <aside className={`hidden lg:flex flex-col bg-slate-900 border-r border-slate-700/50 transition-all duration-300 flex-shrink-0
-                         ${collapsed ? 'w-16' : 'w-60'}`}>
+      <aside className={`hidden lg:flex flex-col border-r transition-all duration-300 flex-shrink-0
+                         ${collapsed ? 'w-16' : 'w-60'}
+                         ${theme === 'light' ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-700/50'}`}>
         <SidebarContent />
         <button
           onClick={() => setCollapsed(!collapsed)}
@@ -185,26 +195,26 @@ export default function Layout() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top Bar */}
-        <header className="h-14 bg-slate-900/80 border-b border-slate-700/50 flex items-center justify-between px-4 lg:px-6 flex-shrink-0">
-          <button className="lg:hidden p-2 text-slate-400 hover:text-white" onClick={() => setMobileOpen(true)}>
+        <header className={`h-14 border-b flex items-center justify-between px-4 lg:px-6 flex-shrink-0 ${theme === 'light' ? 'bg-white/80 border-slate-200' : 'bg-slate-900/80 border-slate-700/50'}`}>
+          <button className={`lg:hidden p-2 ${theme === 'light' ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-white'}`} onClick={() => setMobileOpen(true)}>
             <Menu size={20} />
           </button>
           <div className="flex-1" />
           <div className="flex items-center gap-3">
             <button
               onClick={toggleTheme}
-              className="p-2 text-slate-400 hover:text-white hover:bg-slate-700/60 rounded-lg transition-all"
+              className={`p-2 rounded-lg transition-all ${theme === 'light' ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-100' : 'text-slate-400 hover:text-white hover:bg-slate-700/60'}`}
               title={theme === 'dark' ? 'Switch to Light' : 'Switch to Dark'}
             >
               {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
             </button>
             <NotificationBell />
             <div className="hidden sm:flex items-center gap-2">
-              <div className="w-8 h-8 bg-slate-700 rounded-lg flex items-center justify-center">
-                <User size={14} className="text-slate-300" />
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${theme === 'light' ? 'bg-slate-200' : 'bg-slate-700'}`}>
+                <User size={14} className={theme === 'light' ? 'text-slate-700' : 'text-slate-300'} />
               </div>
               <div>
-                <p className="text-sm font-medium text-slate-200 leading-none">{user?.full_name}</p>
+                <p className={`text-sm font-medium leading-none ${theme === 'light' ? 'text-slate-900' : 'text-slate-200'}`}>{user?.full_name}</p>
                 <span className={`badge border text-[10px] ${roleColors[user?.role]}`}>{user?.role}</span>
               </div>
             </div>

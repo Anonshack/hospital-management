@@ -137,6 +137,12 @@ export default function UsersPage() {
     onSuccess: () => { toast.success('Tasdiqlash holati yangilandi'); qc.invalidateQueries(['users']) },
   })
 
+  const promoteToAdminMutation = useMutation({
+    mutationFn: (id) => usersAPI.promoteToAdmin(id),
+    onSuccess: () => { toast.success('Admin qilib tayinlandi!'); qc.invalidateQueries(['users']) },
+    onError: (e) => toast.error(e.response?.data?.error || 'Xatolik yuz berdi'),
+  })
+
   const users = data?.results || data || []
   const totalPages = data?.total_pages || 1
 
@@ -149,13 +155,27 @@ export default function UsersPage() {
 
   const openEdit = (u) => {
     setEditUser(u)
-    reset({
+    const formData = {
       first_name: u.first_name || '',
       last_name: u.last_name || '',
       email: u.email || '',
       phone: u.phone || '',
       role: u.role || '',
-    })
+      gender: u.gender || 'male',
+      username: u.username || '',
+    }
+    
+    // Add doctor profile data if exists
+    if (u.role === 'doctor' && u.doctor_profile) {
+      formData.specialization = u.doctor_profile.specialization || ''
+      formData.experience_years = u.doctor_profile.experience_years || 0
+      formData.consultation_fee = u.doctor_profile.consultation_fee || 0
+      formData.license_number = u.doctor_profile.license_number || ''
+      formData.bio = u.doctor_profile.bio || ''
+      formData.department = u.doctor_profile.department || ''
+    }
+    
+    reset(formData)
     setAvatarPreview(u.avatar || null)
     setModalOpen(true)
   }
@@ -190,6 +210,15 @@ export default function UsersPage() {
     if (data.avatar_file) formData.append('avatar', data.avatar_file)
 
     if (editUser) {
+      // Add doctor fields for edit mode too
+      if (data.role === 'doctor') {
+        formData.append('specialization', data.specialization || '')
+        formData.append('experience_years', data.experience_years || 0)
+        formData.append('consultation_fee', data.consultation_fee || 0)
+        formData.append('license_number', data.license_number || '')
+        formData.append('bio', data.bio || '')
+        if (data.department) formData.append('department', data.department)
+      }
       updateMutation.mutate({ id: editUser.id, data: formData })
       return
     }
@@ -281,6 +310,18 @@ export default function UsersPage() {
                       </td>
                       <td className="table-cell">
                         <div className="flex items-center gap-1.5">
+                          {u.role !== 'admin' && (
+                            <button 
+                              onClick={() => {
+                                if (window.confirm(`"${u.full_name}" ni admin qilib tayinlaysizmi?`)) 
+                                  promoteToAdminMutation.mutate(u.id)
+                              }} 
+                              className="p-1.5 text-slate-400 hover:text-amber-400 hover:bg-amber-400/10 rounded-lg transition-all" 
+                              title="Admin qilish"
+                            >
+                              👑
+                            </button>
+                          )}
                           <button onClick={() => openEdit(u)} className="p-1.5 text-slate-400 hover:text-blue-400 hover:bg-blue-400/10 rounded-lg transition-all" title="Tahrirlash">
                             <Edit2 size={14} />
                           </button>
@@ -307,8 +348,9 @@ export default function UsersPage() {
 
           {/* Rol */}
           <FormField label="Rol" error={errors.role?.message} required>
-            <select {...register('role', { required: 'Rol tanlang' })} className="input-field">
+            <select {...register('role', { required: 'Rol tanlang' })} className="input-field" disabled={!!editUser}>
               <option value="">Rol tanlang...</option>
+              <option value="admin">👑 Admin</option>
               <option value="doctor">👨‍⚕️ Doktor</option>
               <option value="nurse">👩‍⚕️ Hamshira</option>
               <option value="receptionist">💼 Registrator</option>
@@ -363,8 +405,8 @@ export default function UsersPage() {
             <FormField label="Yosh">
               <input type="number" min="18" max="80" {...register('age')} className="input-field" placeholder="35" />
             </FormField>
-            <FormField label="Jins" required>
-              <select {...register('gender', { required: 'Jins tanlang' })} className="input-field">
+            <FormField label="Jins" required={!editUser}>
+              <select {...register('gender', { required: !editUser ? 'Jins tanlang' : false })} className="input-field" disabled={!!editUser}>
                 <option value="">Tanlang...</option>
                 <option value="male">Erkak</option>
                 <option value="female">Ayol</option>

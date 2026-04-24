@@ -35,48 +35,99 @@
 
   /* Light theme overrides */
   html.light body {
-    background-color: #f1f5f9;
+    background-color: #f8fafc;
     color: #0f172a;
   }
+  
+  /* Cards & Containers */
   html.light .glass-card {
-    background-color: rgba(255,255,255,0.9);
-    border-color: rgba(203,213,225,0.8);
+    background-color: #ffffff;
+    border-color: #e2e8f0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
   }
+  
+  /* Forms */
   html.light .input-field {
-    background-color: rgba(255,255,255,0.9);
-    border-color: rgba(148,163,184,0.6);
+    background-color: #ffffff;
+    border-color: #cbd5e1;
     color: #0f172a;
   }
   html.light .input-field::placeholder { color: #94a3b8; }
+  html.light .input-field:focus {
+    border-color: #0284c7;
+    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.1);
+  }
+  
+  /* Tables */
   html.light .table-wrapper {
-    background-color: rgba(255,255,255,0.9);
-    border-color: rgba(203,213,225,0.8);
+    background-color: #ffffff;
+    border-color: #e2e8f0;
   }
   html.light .table-header {
-    background-color: rgba(241,245,249,0.9);
-    color: #475569;
+    background-color: #f8fafc;
+    color: #64748b;
   }
-  html.light .table-row { border-color: rgba(203,213,225,0.5); }
-  html.light .table-row:hover { background-color: rgba(241,245,249,0.8); }
+  html.light .table-row { border-color: #e2e8f0; }
+  html.light .table-row:hover { background-color: #f8fafc; }
   html.light .table-cell { color: #334155; }
+  
+  /* Stats */
   html.light .stat-card {
-    background-color: rgba(255,255,255,0.9);
-    border-color: rgba(203,213,225,0.8);
+    background-color: #ffffff;
+    border-color: #e2e8f0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
   }
+  
+  /* Buttons */
   html.light .btn-secondary {
-    background-color: #e2e8f0;
+    background-color: #f1f5f9;
     color: #334155;
+    border: 1px solid #e2e8f0;
   }
-  html.light .btn-secondary:hover { background-color: #cbd5e1; }
+  html.light .btn-secondary:hover { 
+    background-color: #e2e8f0; 
+  }
+  
+  /* Text */
   html.light .label { color: #475569; }
   html.light .section-title { color: #0f172a; }
   html.light .section-subtitle { color: #64748b; }
-  html.light ::-webkit-scrollbar-track { background: #e2e8f0; }
-  html.light ::-webkit-scrollbar-thumb { background: #94a3b8; }
-  html.light input[type="date"]::-webkit-calendar-picker-indicator { filter: none; }
+  
+  /* Scrollbar */
+  html.light ::-webkit-scrollbar-track { background: #f1f5f9; }
+  html.light ::-webkit-scrollbar-thumb { background: #cbd5e1; }
+  html.light ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  
+  /* Select dropdown */
   html.light select.input-field {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%23475569' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3E%3C/svg%3E");
   }
+  
+  /* Calendar picker */
+  html.light input[type="date"]::-webkit-calendar-picker-indicator { 
+    filter: none; 
+  }
+  
+  /* Sidebar & Navigation */
+  html.light nav {
+    background-color: #ffffff;
+    border-color: #e2e8f0;
+  }
+  
+  /* Text colors */
+  html.light .text-slate-200 { color: #334155 !important; }
+  html.light .text-slate-300 { color: #475569 !important; }
+  html.light .text-slate-400 { color: #64748b !important; }
+  html.light .text-slate-500 { color: #94a3b8 !important; }
+  html.light .text-white { color: #0f172a !important; }
+  
+  /* Background colors */
+  html.light .bg-slate-800 { background-color: #f8fafc !important; }
+  html.light .bg-slate-900 { background-color: #f1f5f9 !important; }
+  
+  /* Border colors */
+  html.light .border-slate-700 { border-color: #e2e8f0 !important; }
+  html.light .border-slate-600 { border-color: #cbd5e1 !important; }
 }
 
 @layer components {
