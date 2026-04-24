@@ -22,13 +22,13 @@ class MedicalRecordViewSet(viewsets.ModelViewSet):
     ordering_fields = ['created_at']
 
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminOrDoctor()]
         return [IsAuthenticated()]
 
     def get_queryset(self):
         user = self.request.user
         qs = self.queryset
+        if user.role == User.Role.ADMIN:
+            return qs
         if user.role == User.Role.PATIENT:
             return qs.filter(patient__user=user, is_confidential=False)
         if user.role == User.Role.DOCTOR:
@@ -36,6 +36,21 @@ class MedicalRecordViewSet(viewsets.ModelViewSet):
         if user.role == User.Role.NURSE:
             return qs.filter(is_confidential=False)
         return qs
+
+    def create(self, request, *args, **kwargs):
+        if request.user.role not in [User.Role.ADMIN, User.Role.DOCTOR]:
+            return Response({'error': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
+        return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        if request.user.role not in [User.Role.ADMIN, User.Role.DOCTOR]:
+            return Response({'error': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
+        return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        if request.user.role not in [User.Role.ADMIN, User.Role.DOCTOR]:
+            return Response({'error': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
+        return super().destroy(request, *args, **kwargs)
 
     def get_serializer_class(self):
         if self.action in ['create', 'update', 'partial_update']:

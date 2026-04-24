@@ -22,12 +22,6 @@ class PatientViewSet(viewsets.ModelViewSet):
     ordering_fields = ['created_at', 'user__first_name']
 
     def get_permissions(self):
-        if self.action in ['list', 'retrieve']:
-            return [IsAdminOrDoctorOrNurse()]
-        if self.action in ['update', 'partial_update']:
-            return [IsAuthenticated()]
-        if self.action == 'destroy':
-            return [IsAdmin()]
         return [IsAuthenticated()]
 
     def get_queryset(self):
@@ -45,9 +39,25 @@ class PatientViewSet(viewsets.ModelViewSet):
 
     def update(self, request, *args, **kwargs):
         patient = self.get_object()
-        if request.user.role == User.Role.PATIENT and patient.user != request.user:
+        user = request.user
+        if user.role == User.Role.ADMIN:
+            pass  # Admin can update any patient
+        elif user.role == User.Role.PATIENT and patient.user != user:
+            return Response({'error': True, 'message': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
+        elif user.role not in [User.Role.ADMIN, User.Role.PATIENT]:
             return Response({'error': True, 'message': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
         return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        if request.user.role != User.Role.ADMIN:
+            return Response({'error': 'Only admin can delete patients.'}, status=status.HTTP_403_FORBIDDEN)
+        return super().destroy(request, *args, **kwargs)
+
+    def list(self, request, *args, **kwargs):
+        user = request.user
+        if user.role == User.Role.PATIENT:
+            return Response({'error': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
+        return super().list(request, *args, **kwargs)
 
     @action(detail=False, methods=['get', 'patch'], permission_classes=[IsAuthenticated],
             parser_classes=[MultiPartParser, FormParser, JSONParser])

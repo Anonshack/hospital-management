@@ -3,6 +3,7 @@ Billing Model
 """
 
 from django.db import models
+from django.conf import settings
 from django.utils.translation import gettext_lazy as _
 from django.core.validators import MinValueValidator
 
@@ -69,3 +70,46 @@ class Billing(models.Model):
     @property
     def balance_due(self):
         return self.total_amount - self.paid_amount
+
+
+def receipt_upload_path(instance, filename):
+    import uuid
+    ext = filename.split('.')[-1]
+    return f'billing/receipts/{instance.billing_id}/{uuid.uuid4().hex}.{ext}'
+
+
+class PaymentReceipt(models.Model):
+    class Status(models.TextChoices):
+        PENDING = 'pending', _('Pending')
+        CONFIRMED = 'confirmed', _('Confirmed')
+        REJECTED = 'rejected', _('Rejected')
+
+    billing = models.ForeignKey(
+        Billing,
+        on_delete=models.CASCADE,
+        related_name='receipts',
+    )
+    patient = models.ForeignKey(
+        'patients.Patient',
+        on_delete=models.CASCADE,
+        related_name='payment_receipts',
+    )
+    card_number = models.CharField(max_length=20, blank=True, help_text="Last 4 digits or masked card number")
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    receipt_image = models.ImageField(upload_to=receipt_upload_path)
+    note = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    confirmed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='confirmed_receipts',
+    )
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Receipt #{self.id} for {self.billing.invoice_number} — {self.status}"

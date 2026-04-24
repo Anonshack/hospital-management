@@ -20,7 +20,7 @@ from .serializers import (
 
 
 class DoctorViewSet(viewsets.ModelViewSet):
-    queryset = Doctor.objects.select_related('user', 'department').prefetch_related('schedules').all()
+    queryset = Doctor.objects.select_related('user', 'department').prefetch_related('schedules').all().order_by('id')
     parser_classes = [MultiPartParser, FormParser, JSONParser]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['specialization', 'department', 'is_available']

@@ -2,10 +2,16 @@
 Appointment Model
 """
 
+import uuid
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django.core.exceptions import ValidationError
 from django.utils import timezone
+
+
+def appointment_image_upload_path(instance, filename):
+    ext = filename.split('.')[-1]
+    return f'appointments/{instance.appointment_id}/{uuid.uuid4().hex}.{ext}'
 
 
 class Appointment(models.Model):
@@ -82,3 +88,19 @@ class Appointment(models.Model):
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)
+
+
+class AppointmentImage(models.Model):
+    appointment = models.ForeignKey(
+        Appointment,
+        on_delete=models.CASCADE,
+        related_name='images',
+    )
+    image = models.ImageField(upload_to=appointment_image_upload_path)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['uploaded_at']
+
+    def __str__(self):
+        return f"Image for appointment {self.appointment_id}"

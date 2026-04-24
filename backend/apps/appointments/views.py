@@ -7,6 +7,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 import django_filters
@@ -14,12 +15,13 @@ import django_filters
 from core.permissions import IsAdmin, IsAdminOrDoctor, IsAdminOrReceptionist
 from apps.users.models import User
 from apps.patients.models import Patient
-from .models import Appointment
+from .models import Appointment, AppointmentImage
 from .serializers import (
     AppointmentSerializer,
     AppointmentCreateSerializer,
     AppointmentStatusUpdateSerializer,
     AppointmentListSerializer,
+    AppointmentImageSerializer,
 )
 from apps.notifications.services import NotificationService
 
@@ -35,35 +37,31 @@ class AppointmentFilter(django_filters.FilterSet):
 
 
 class AppointmentViewSet(viewsets.ModelViewSet):
-    """
-    Full CRUD for Appointments with role-based filtering.
-    - Admin/Receptionist: all appointments
-    - Doctor: their own appointments
-    - Patient: their own appointments
-    """
     queryset = Appointment.objects.select_related(
         'patient__user', 'doctor__user', 'cancelled_by'
-    ).all()
+    ).prefetch_related('images').all()
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = AppointmentFilter
-    search_fields = ['patient__user__first_name', 'patient__user__last_name', 'doctor__user__first_name', 'reason']
+    search_fields = ['patient__user__first_name', 'patient__user__last_name',
+                     'doctor__user__first_name', 'reason']
     ordering_fields = ['date', 'time', 'status', 'created_at']
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get_permissions(self):
-        if self.action in ['update', 'partial_update', 'destroy']:
-            return [IsAuthenticated()]
         return [IsAuthenticated()]
 
     def get_queryset(self):
         user = self.request.user
         qs = self.queryset
+        if user.role == User.Role.ADMIN:
+            return qs
         if user.role == User.Role.DOCTOR:
             return qs.filter(doctor__user=user)
         if user.role == User.Role.PATIENT:
             return qs.filter(patient__user=user)
         if user.role == User.Role.NURSE:
             return qs.filter(status__in=[Appointment.Status.APPROVED, Appointment.Status.COMPLETED])
-        return qs  # Admin, Receptionist see all
+        return qs  # Receptionist sees all
 
     def get_serializer_class(self):
         if self.action == 'create':
@@ -75,42 +73,77 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         return AppointmentSerializer
 
     def perform_create(self, serializer):
-        """Auto-assign patient profile for patient users."""
         user = self.request.user
         if user.role == User.Role.PATIENT:
-            try:
-                patient = Patient.objects.get(user=user)
-            except Patient.DoesNotExist:
-                patient = Patient.objects.create(user=user)
+            patient, _ = Patient.objects.get_or_create(user=user)
             appointment = serializer.save(patient=patient)
         else:
-            # Admin/Receptionist/Doctor must provide patient in payload
             if 'patient' not in serializer.validated_data:
                 from rest_framework.exceptions import ValidationError
                 raise ValidationError({'patient': 'Patient is required.'})
             appointment = serializer.save()
+
+        # Auto-create billing record for the appointment
+        try:
+            from apps.billing.models import Billing
+            fee = appointment.doctor.consultation_fee or 0
+            Billing.objects.get_or_create(
+                appointment=appointment,
+                defaults={
+                    'patient': appointment.patient,
+                    'amount': fee,
+                    'description': f"Consultation with {appointment.doctor.full_name}",
+                }
+            )
+        except Exception:
+            pass
 
         try:
             NotificationService.send_appointment_confirmation(appointment)
         except Exception:
             pass
 
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        appointment = serializer.instance
+        # Get the auto-created bill id
+        bill_id = None
+        try:
+            bill_id = appointment.bill.id
+        except Exception:
+            pass
+        data = AppointmentSerializer(appointment, context={'request': request}).data
+        data['bill_id'] = bill_id
+        return Response(data, status=status.HTTP_201_CREATED)
+        appointment = self.get_object()
+        user = request.user
+        # Admin can delete any; doctor can delete their own; patient can delete their own
+        if user.role == User.Role.ADMIN:
+            pass
+        elif user.role == User.Role.DOCTOR and appointment.doctor.user == user:
+            pass
+        elif user.role == User.Role.PATIENT and appointment.patient.user == user:
+            pass
+        else:
+            return Response({'error': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
+        appointment.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     def perform_update(self, serializer):
         appointment = serializer.save()
-        # Notify on status change
         try:
             if 'status' in serializer.validated_data:
                 NotificationService.send_appointment_status_update(appointment)
         except Exception:
             pass
 
-    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    @action(detail=True, methods=['post'])
     def cancel(self, request, pk=None):
-        """POST /api/appointments/{id}/cancel/"""
         appointment = self.get_object()
         user = request.user
 
-        # Permission check
         is_owner = (
             (user.role == User.Role.PATIENT and appointment.patient.user == user) or
             (user.role == User.Role.DOCTOR and appointment.doctor.user == user) or
@@ -125,9 +158,8 @@ class AppointmentViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        reason = request.data.get('reason', '')
         appointment.status = Appointment.Status.CANCELLED
-        appointment.cancellation_reason = reason
+        appointment.cancellation_reason = request.data.get('reason', '')
         appointment.cancelled_by = user
         appointment.save()
 
@@ -138,10 +170,16 @@ class AppointmentViewSet(viewsets.ModelViewSet):
 
         return Response({'message': 'Appointment cancelled successfully.'})
 
-    @action(detail=True, methods=['post'], permission_classes=[IsAdminOrDoctor])
+    @action(detail=True, methods=['post'])
     def approve(self, request, pk=None):
-        """POST /api/appointments/{id}/approve/"""
         appointment = self.get_object()
+        user = request.user
+
+        if user.role not in [User.Role.ADMIN, User.Role.DOCTOR]:
+            return Response({'error': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
+        if user.role == User.Role.DOCTOR and appointment.doctor.user != user:
+            return Response({'error': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
+
         if appointment.status != Appointment.Status.PENDING:
             return Response(
                 {'error': True, 'message': 'Only pending appointments can be approved.'},
@@ -154,12 +192,43 @@ class AppointmentViewSet(viewsets.ModelViewSet):
             NotificationService.send_appointment_status_update(appointment)
         except Exception:
             pass
-        return Response({'message': 'Appointment approved.', 'appointment': AppointmentSerializer(appointment).data})
+        return Response({'message': 'Appointment approved.',
+                         'appointment': AppointmentSerializer(appointment, context={'request': request}).data})
 
-    @action(detail=True, methods=['post'], permission_classes=[IsAdminOrDoctor])
-    def complete(self, request, pk=None):
-        """POST /api/appointments/{id}/complete/"""
+    @action(detail=True, methods=['post'])
+    def reject(self, request, pk=None):
+        """Doctor/Admin can reject (cancel) a pending appointment."""
         appointment = self.get_object()
+        user = request.user
+
+        if user.role not in [User.Role.ADMIN, User.Role.DOCTOR]:
+            return Response({'error': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
+        if user.role == User.Role.DOCTOR and appointment.doctor.user != user:
+            return Response({'error': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
+
+        if appointment.status not in [Appointment.Status.PENDING, Appointment.Status.APPROVED]:
+            return Response({'error': 'Cannot reject this appointment.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        appointment.status = Appointment.Status.CANCELLED
+        appointment.cancellation_reason = request.data.get('reason', 'Rejected by doctor.')
+        appointment.cancelled_by = user
+        appointment.save()
+        try:
+            NotificationService.send_appointment_status_update(appointment)
+        except Exception:
+            pass
+        return Response({'message': 'Appointment rejected.'})
+
+    @action(detail=True, methods=['post'])
+    def complete(self, request, pk=None):
+        appointment = self.get_object()
+        user = request.user
+
+        if user.role not in [User.Role.ADMIN, User.Role.DOCTOR]:
+            return Response({'error': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
+        if user.role == User.Role.DOCTOR and appointment.doctor.user != user:
+            return Response({'error': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
+
         if appointment.status != Appointment.Status.APPROVED:
             return Response(
                 {'error': True, 'message': 'Only approved appointments can be completed.'},
@@ -168,28 +237,56 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         appointment.status = Appointment.Status.COMPLETED
         appointment.notes = request.data.get('notes', appointment.notes)
         appointment.save()
-        return Response({'message': 'Appointment marked as completed.', 'appointment': AppointmentSerializer(appointment).data})
+        return Response({'message': 'Appointment marked as completed.',
+                         'appointment': AppointmentSerializer(appointment, context={'request': request}).data})
 
-    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+    @action(detail=True, methods=['post'], url_path='upload-images')
+    def upload_images(self, request, pk=None):
+        """POST /api/appointments/{id}/upload-images/ — add images to existing appointment."""
+        appointment = self.get_object()
+        user = request.user
+
+        is_owner = (
+            (user.role == User.Role.PATIENT and appointment.patient.user == user) or
+            user.role in [User.Role.ADMIN, User.Role.DOCTOR, User.Role.RECEPTIONIST]
+        )
+        if not is_owner:
+            return Response({'error': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
+
+        existing_count = appointment.images.count()
+        files = request.FILES.getlist('images')
+        if not files:
+            return Response({'error': 'No images provided.'}, status=status.HTTP_400_BAD_REQUEST)
+        if existing_count + len(files) > 4:
+            return Response(
+                {'error': f'Maximum 4 images allowed. Already have {existing_count}.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        created = []
+        for f in files:
+            img = AppointmentImage.objects.create(appointment=appointment, image=f)
+            created.append(AppointmentImageSerializer(img, context={'request': request}).data)
+
+        return Response({'images': created}, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['get'])
     def today(self, request):
-        """GET /api/appointments/today/ - Today's appointments."""
         qs = self.get_queryset().filter(date=date.today())
-        serializer = AppointmentListSerializer(qs, many=True)
+        serializer = AppointmentListSerializer(qs, many=True, context={'request': request})
         return Response(serializer.data)
 
-    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+    @action(detail=False, methods=['get'])
     def upcoming(self, request):
-        """GET /api/appointments/upcoming/ - Upcoming appointments."""
         qs = self.get_queryset().filter(
             date__gte=date.today(),
             status__in=[Appointment.Status.PENDING, Appointment.Status.APPROVED]
         ).order_by('date', 'time')[:10]
-        serializer = AppointmentListSerializer(qs, many=True)
+        serializer = AppointmentListSerializer(qs, many=True, context={'request': request})
         return Response(serializer.data)
 
     @action(detail=False, methods=['get'], permission_classes=[IsAdmin])
     def statistics(self, request):
-        """GET /api/appointments/statistics/ - Admin dashboard stats."""
         from django.db.models import Count
         today = date.today()
         week_ago = today - timedelta(days=7)
