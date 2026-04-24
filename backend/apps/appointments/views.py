@@ -78,12 +78,18 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         """Auto-assign patient profile for patient users."""
         user = self.request.user
         if user.role == User.Role.PATIENT:
-            patient = Patient.objects.get(user=user)
+            try:
+                patient = Patient.objects.get(user=user)
+            except Patient.DoesNotExist:
+                patient = Patient.objects.create(user=user)
             appointment = serializer.save(patient=patient)
         else:
+            # Admin/Receptionist/Doctor must provide patient in payload
+            if 'patient' not in serializer.validated_data:
+                from rest_framework.exceptions import ValidationError
+                raise ValidationError({'patient': 'Patient is required.'})
             appointment = serializer.save()
 
-        # Send notification
         try:
             NotificationService.send_appointment_confirmation(appointment)
         except Exception:

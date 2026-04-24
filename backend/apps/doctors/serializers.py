@@ -4,7 +4,7 @@ from .models import Doctor, DoctorSchedule
 
 
 class DoctorScheduleSerializer(serializers.ModelSerializer):
-    day_name = serializers.CharField(source='get_day_of_week_display', read_only=True)
+    day_name = serializers.SerializerMethodField()
     time_slots = serializers.SerializerMethodField()
 
     class Meta:
@@ -12,10 +12,20 @@ class DoctorScheduleSerializer(serializers.ModelSerializer):
         fields = ['id', 'day_of_week', 'day_name', 'start_time', 'end_time',
                   'is_active', 'slot_duration', 'time_slots']
 
+    def get_day_name(self, obj):
+        try:
+            return obj.get_day_of_week_display()
+        except Exception:
+            days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+            return days[obj.day_of_week] if 0 <= obj.day_of_week <= 6 else str(obj.day_of_week)
+
     def get_time_slots(self, obj):
-        if obj.is_active:
+        if not obj.is_active:
+            return []
+        try:
             return obj.get_time_slots()
-        return []
+        except Exception:
+            return []
 
 
 class DoctorSerializer(serializers.ModelSerializer):
@@ -42,6 +52,7 @@ class DoctorSerializer(serializers.ModelSerializer):
             request = self.context.get('request')
             if request:
                 return request.build_absolute_uri(obj.user.avatar.url)
+            return obj.user.avatar.url
         return None
 
     def get_phone(self, obj):
@@ -59,22 +70,19 @@ class DoctorUpdateSerializer(serializers.ModelSerializer):
 
 
 class DoctorListSerializer(serializers.ModelSerializer):
-    """
-    List serializer — includes schedules so booking page can show
-    working days/hours without a separate request.
-    """
     full_name = serializers.ReadOnlyField()
     department_name = serializers.CharField(source='department.name', read_only=True)
     avatar = serializers.SerializerMethodField()
     schedules = DoctorScheduleSerializer(many=True, read_only=True)
     email = serializers.ReadOnlyField()
+    phone = serializers.SerializerMethodField()
 
     class Meta:
         model = Doctor
         fields = [
-            'id', 'full_name', 'email', 'specialization', 'department_name',
+            'id', 'full_name', 'email', 'phone', 'specialization', 'department_name',
             'experience_years', 'consultation_fee', 'is_available',
-            'avatar', 'bio', 'schedules',
+            'avatar', 'bio', 'schedules', 'qualification',
         ]
 
     def get_avatar(self, obj):
@@ -82,4 +90,8 @@ class DoctorListSerializer(serializers.ModelSerializer):
             request = self.context.get('request')
             if request:
                 return request.build_absolute_uri(obj.user.avatar.url)
+            return obj.user.avatar.url
         return None
+
+    def get_phone(self, obj):
+        return obj.user.phone
