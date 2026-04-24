@@ -3,9 +3,10 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Calendar, Users, UserCheck, Stethoscope,
   FileText, CreditCard, Building2, Bell, ChevronLeft,
-  ChevronRight, LogOut, User, Menu, X, Activity, Clock
+  ChevronRight, LogOut, User, Menu, X, Activity, Clock, BookOpen, Sun, Moon
 } from 'lucide-react'
 import useAuthStore from '../../store/authStore'
+import useThemeStore from '../../store/themeStore'
 import NotificationBell from './NotificationBell'
 
 const navConfig = {
@@ -18,6 +19,7 @@ const navConfig = {
     { to: '/medical-records', icon: FileText, label: 'Medical Records' },
     { to: '/billing', icon: CreditCard, label: 'Billing' },
     { to: '/users', icon: UserCheck, label: 'User Management' },
+    { to: '/blog', icon: BookOpen, label: 'Blog' },
   ],
   doctor: [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -26,7 +28,7 @@ const navConfig = {
     { to: '/medical-records', icon: FileText, label: 'Medical Records' },
     { to: '/departments', icon: Building2, label: 'Departments' },
     { to: '/schedule', icon: Clock, label: 'My Schedule' },
-
+    { to: '/blog', icon: BookOpen, label: 'Blog' },
   ],
   nurse: [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -48,6 +50,7 @@ const navConfig = {
     { to: '/appointments/book', icon: Calendar, label: 'Book Appointment' },
     { to: '/medical-records', icon: FileText, label: 'My Records' },
     { to: '/billing', icon: CreditCard, label: 'My Bills' },
+    { to: '/blog', icon: BookOpen, label: 'Blog' },
   ],
 }
 
@@ -63,6 +66,7 @@ export default function Layout() {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const { user, logout } = useAuthStore()
+  const { theme, toggleTheme } = useThemeStore()
   const navigate = useNavigate()
   const navItems = navConfig[user?.role] || navConfig.patient
 
@@ -187,6 +191,13 @@ export default function Layout() {
           </button>
           <div className="flex-1" />
           <div className="flex items-center gap-3">
+            <button
+              onClick={toggleTheme}
+              className="p-2 text-slate-400 hover:text-white hover:bg-slate-700/60 rounded-lg transition-all"
+              title={theme === 'dark' ? 'Switch to Light' : 'Switch to Dark'}
+            >
+              {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
             <NotificationBell />
             <div className="hidden sm:flex items-center gap-2">
               <div className="w-8 h-8 bg-slate-700 rounded-lg flex items-center justify-center">

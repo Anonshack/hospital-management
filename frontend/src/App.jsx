@@ -15,6 +15,7 @@ import UsersPage from './pages/UsersPage'
 import ProfilePage from './pages/ProfilePage'
 import NotFoundPage from './pages/NotFoundPage'
 import DoctorSchedulePage from './pages/DoctorSchedulePage'
+import BlogPage from './pages/BlogPage'
 
 function PrivateRoute({ children, roles }) {
   const { isAuthenticated, user } = useAuthStore()
@@ -45,6 +46,7 @@ export default function App() {
         <Route path="appointments/book" element={<BookAppointmentPage />} />
         <Route path="medical-records" element={<MedicalRecordsPage />} />
         <Route path="billing" element={<BillingPage />} />
+        <Route path="blog" element={<BlogPage />} />
 
         {/* Doctor schedule */}
         <Route path="schedule" element={

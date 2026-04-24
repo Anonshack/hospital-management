@@ -5,10 +5,10 @@ import { useForm } from 'react-hook-form'
 import {
   Calendar, Clock, ArrowLeft, CheckCircle, Star,
   Stethoscope, DollarSign, Award, User, ChevronRight,
-  Phone, Mail, Building2, AlertCircle
+  Phone, Mail, Building2, AlertCircle, ImagePlus, X
 } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { doctorsAPI, patientsAPI, appointmentsAPI } from '../services/api'
+import { doctorsAPI, patientsAPI, appointmentsAPI, billingAPI } from '../services/api'
 import useAuthStore from '../store/authStore'
 import { LoadingPage, FormField, Spinner } from '../components/common/UI'
 
@@ -180,6 +180,12 @@ export default function BookAppointmentPage() {
   const [loadingSlots, setLoadingSlots] = useState(false)
   const [booked, setBooked] = useState(false)
   const [searchDoc, setSearchDoc] = useState('')
+  const [uploadImages, setUploadImages] = useState([])
+  const [imagePreviews, setImagePreviews] = useState([])
+  // Payment step state
+  const [receiptFile, setReceiptFile] = useState(null)
+  const [receiptPreview, setReceiptPreview] = useState(null)
+  const [payCardNumber, setPayCardNumber] = useState('')
 
   const { register, handleSubmit, formState: { errors } } = useForm()
 
@@ -222,21 +228,56 @@ export default function BookAppointmentPage() {
   }
 
   const bookMutation = useMutation({
-    mutationFn: (data) => appointmentsAPI.create(data),
+    mutationFn: async (data) => {
+      const fd = new FormData()
+      fd.append('doctor', data.doctor)
+      if (data.patient) fd.append('patient', data.patient)
+      fd.append('date', data.date)
+      fd.append('time', data.time)
+      fd.append('reason', data.reason)
+      fd.append('symptoms', data.symptoms || '')
+      uploadImages.forEach(img => fd.append('uploaded_images', img))
+      const res = await appointmentsAPI.create(fd)
+      const billId = res.data?.bill_id
+      // Upload payment receipt if patient provided one
+      if (billId && receiptFile) {
+        try {
+          const rfd = new FormData()
+          rfd.append('receipt_image', receiptFile)
+          rfd.append('amount', selectedDoctor?.consultation_fee || 0)
+          rfd.append('card_number', payCardNumber)
+          await billingAPI.uploadReceipt(billId, rfd)
+        } catch {}
+      }
+      return res
+    },
     onSuccess: () => setBooked(true),
-    onError: (e) => toast.error(e.response?.data?.message || e.response?.data?.detail || 'Xato yuz berdi'),
+    onError: (e) => {
+      const data = e.response?.data
+      if (data?.details) {
+        const details = data.details
+        const msgs = Object.entries(details)
+          .filter(([k]) => k !== 'error')
+          .map(([k, v]) => `${k}: ${Array.isArray(v) ? v[0] : v}`)
+          .join(', ')
+        toast.error(msgs || data.message || 'Xato yuz berdi')
+      } else {
+        toast.error(data?.message || data?.detail || 'Qabulni belgilashda xato yuz berdi')
+      }
+    },
   })
 
   const onSubmit = (formData) => {
     if (!selectedTime) { toast.error('Vaqt slotini tanlang'); return }
     if (slotsData && !slotsData.available) { toast.error(slotsData.message); return }
+    if (!formData.reason?.trim()) { toast.error('Tashrif sababini kiriting'); return }
     bookMutation.mutate({
       doctor: selectedDoctor.id,
       patient: user?.role === 'patient' ? undefined : formData.patient,
       date: selectedDate,
       time: selectedTime + ':00',
-      reason: formData.reason,
-      symptoms: formData.symptoms,
+      reason: formData.reason.trim(),
+      symptoms: formData.symptoms || '',
     })
   }
 
@@ -254,7 +295,7 @@ export default function BookAppointmentPage() {
         <p className="text-slate-500 text-sm mb-8">Qabulingiz tasdiqlash kutilmoqda.</p>
         <div className="flex gap-3">
           <button onClick={() => navigate('/appointments')} className="btn-primary">Qabullarim</button>
-          <button onClick={() => { setBooked(false); setStep(1); setSelectedDoctor(null); setSelectedDate(''); setSelectedTime(''); setSlotsData(null) }} className="btn-secondary">
+          <button onClick={() => { setBooked(false); setStep(1); setSelectedDoctor(null); setSelectedDate(''); setSelectedTime(''); setSlotsData(null); setUploadImages([]); setImagePreviews([]); setReceiptFile(null); setReceiptPreview(null); setPayCardNumber('') }} className="btn-secondary">
             Yana belgilash
           </button>
         </div>
@@ -277,7 +318,7 @@ export default function BookAppointmentPage() {
 
       {/* Steps */}
       <div className="flex items-center gap-2">
-        {['Shifokor', 'Vaqt', 'Ma\'lumot'].map((label, i) => (
+        {['Shifokor', 'Vaqt', 'To\'lov', 'Ma\'lumot'].map((label, i) => (
           <div key={i} className="flex items-center gap-2 flex-1">
             <div className={`flex items-center gap-2 ${i < step - 1 ? 'text-emerald-400' : i === step - 1 ? 'text-primary-400' : 'text-slate-600'}`}>
               <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all ${
@@ -289,7 +330,7 @@ export default function BookAppointmentPage() {
               </div>
               <span className="text-xs font-medium hidden sm:inline">{label}</span>
             </div>
-            {i < 2 && <div className={`flex-1 h-px ${i < step - 1 ? 'bg-emerald-500/40' : 'bg-slate-700'}`} />}
+            {i < 3 && <div className={`flex-1 h-px ${i < step - 1 ? 'bg-emerald-500/40' : 'bg-slate-700'}`} />}
           </div>
         ))}
       </div>
@@ -429,8 +470,86 @@ export default function BookAppointmentPage() {
         </div>
       )}
 
-      {/* Step 3: Details */}
-      {step === 3 && (
+      {/* Step 3: Payment */}
+      {step === 3 && selectedDoctor && (
+        <div className="glass-card p-6 space-y-5">
+          <div className="bg-primary-900/30 border border-primary-500/25 rounded-xl p-4">
+            <p className="text-xs text-slate-500 uppercase tracking-wider mb-3">To'lov ma'lumotlari</p>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <p className="text-slate-500 text-xs">Shifokor</p>
+                <p className="text-white font-semibold">{selectedDoctor.full_name}</p>
+                <p className="text-primary-400 text-xs">{selectedDoctor.specialization}</p>
+              </div>
+              <div>
+                <p className="text-slate-500 text-xs">Konsultatsiya narxi</p>
+                <p className="text-2xl font-bold text-emerald-400">${selectedDoctor.consultation_fee || 0}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl space-y-2">
+            <p className="text-blue-300 font-semibold text-sm">💳 To'lov ko'rsatmasi</p>
+            <p className="text-blue-200/80 text-xs">Quyidagi karta raqamiga <strong>${selectedDoctor.consultation_fee || 0}</strong> miqdorida pul o'tkazing:</p>
+            <div className="bg-slate-900/60 rounded-xl p-3 font-mono text-center">
+              <p className="text-xs text-slate-500 mb-1">Karta raqami</p>
+              <p className="text-white text-lg font-bold tracking-widest">8600 1234 5678 9012</p>
+              <p className="text-slate-400 text-xs mt-1">Egasi: MediCore Klinikasi</p>
+            </div>
+          </div>
+
+          <div>
+            <label className="label">Sizning karta raqamingiz (oxirgi 4 raqam)</label>
+            <input
+              value={payCardNumber}
+              onChange={e => setPayCardNumber(e.target.value)}
+              className="input-field"
+              placeholder="**** **** **** 1234"
+              maxLength={20}
+            />
+          </div>
+
+          <div>
+            <label className="label">To'lov cheki (screenshot) *</label>
+            {receiptPreview && (
+              <div className="relative mb-2">
+                <img src={receiptPreview} className="w-full rounded-xl object-cover max-h-48 border border-slate-600" alt="receipt" />
+                <button type="button" onClick={() => { setReceiptFile(null); setReceiptPreview(null) }}
+                  className="absolute top-2 right-2 w-6 h-6 bg-red-500/80 rounded-full flex items-center justify-center text-white hover:bg-red-500">
+                  <X size={12} />
+                </button>
+              </div>
+            )}
+            <label className="flex items-center gap-3 cursor-pointer p-4 border-2 border-dashed border-slate-600 hover:border-primary-500 rounded-xl transition-colors">
+              <ImagePlus size={20} className="text-slate-400" />
+              <div>
+                <p className="text-sm text-slate-300">{receiptFile ? receiptFile.name : 'To\'lov chekini yuklang'}</p>
+                <p className="text-xs text-slate-500">JPG, PNG — bank ilovasidan screenshot</p>
+              </div>
+              <input type="file" accept="image/*" className="hidden" onChange={e => {
+                const f = e.target.files[0]
+                if (f) { setReceiptFile(f); setReceiptPreview(URL.createObjectURL(f)) }
+              }} />
+            </label>
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={() => setStep(2)} className="btn-secondary flex-1 justify-center">Orqaga</button>
+            <button
+              onClick={() => {
+                if (!receiptFile) { toast.error('To\'lov chekini yuklang'); return }
+                setStep(4)
+              }}
+              className="btn-primary flex-1 justify-center py-3"
+            >
+              Davom etish <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Step 4: Details */}
+      {step === 4 && (
         <div className="glass-card p-6 space-y-5">
           {/* Booking summary */}
           <div className="bg-primary-900/30 border border-primary-500/25 rounded-xl p-4">
@@ -483,8 +602,51 @@ export default function BookAppointmentPage() {
               />
             </FormField>
 
+            {/* Image Upload */}
+            <div>
+              <label className="label">Rasmlar (ixtiyoriy, max 4)</label>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {imagePreviews.map((src, i) => (
+                  <div key={i} className="relative w-20 h-20">
+                    <img src={src} className="w-20 h-20 rounded-xl object-cover border border-slate-600" alt="" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUploadImages(imgs => imgs.filter((_, idx) => idx !== i))
+                        setImagePreviews(ps => ps.filter((_, idx) => idx !== i))
+                      }}
+                      className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white"
+                    >
+                      <X size={10} />
+                    </button>
+                  </div>
+                ))}
+                {uploadImages.length < 4 && (
+                  <label className="w-20 h-20 rounded-xl border-2 border-dashed border-slate-600 hover:border-primary-500 flex flex-col items-center justify-center cursor-pointer text-slate-500 hover:text-primary-400 transition-colors">
+                    <ImagePlus size={20} />
+                    <span className="text-[10px] mt-1">Rasm</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={e => {
+                        const files = Array.from(e.target.files)
+                        const remaining = 4 - uploadImages.length
+                        const toAdd = files.slice(0, remaining)
+                        setUploadImages(imgs => [...imgs, ...toAdd])
+                        setImagePreviews(ps => [...ps, ...toAdd.map(f => URL.createObjectURL(f))])
+                        e.target.value = ''
+                      }}
+                    />
+                  </label>
+                )}
+              </div>
+              <p className="text-xs text-slate-500">Kasallik yoki jarohat rasmlarini yuklashingiz mumkin</p>
+            </div>
+
             <div className="flex gap-3 pt-2">
-              <button type="button" onClick={() => setStep(2)} className="btn-secondary flex-1 justify-center">
+              <button type="button" onClick={() => setStep(3)} className="btn-secondary flex-1 justify-center">
                 Orqaga
               </button>
               <button

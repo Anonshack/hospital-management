@@ -6,6 +6,7 @@ import { Toaster } from 'react-hot-toast'
 import App from './App'
 import './index.css'
 import useAuthStore from './store/authStore'
+import useThemeStore from './store/themeStore'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -27,6 +28,9 @@ window.addEventListener('auth:logout', () => {
   useAuthStore.getState().forceLogout()
   queryClient.clear()
 })
+
+// Init theme on load
+useThemeStore.getState().initTheme()
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

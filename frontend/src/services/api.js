@@ -91,12 +91,16 @@ api.interceptors.response.use(
       }
     }
 
-    // Show error toasts for server errors (not 401/403)
+    // Show error toasts for server errors (not 401/403/400)
     if (error.response?.status >= 500) {
       const msg = error.response?.data?.message ||
                   error.response?.data?.detail ||
                   'Server xatosi yuz berdi'
-      toast.error(`Server xatosi: ${msg}`)
+      // Only show generic toast if the calling code doesn't have its own handler
+      // by checking if the error has been already handled (marked)
+      if (!error.config?._suppressToast) {
+        toast.error(`Server xatosi: ${msg}`)
+      }
     }
 
     return Promise.reject(error)
@@ -138,6 +142,7 @@ export const usersAPI = {
   update: (id, data) => api.patch(`/users/${id}/`, data),
   delete: (id) => api.delete(`/users/${id}/`),
   activate: (id) => api.post(`/users/${id}/activate/`),
+  verify: (id) => api.post(`/users/${id}/verify/`),
   statistics: () => api.get('/users/statistics/'),
 }
 
@@ -146,7 +151,12 @@ export const patientsAPI = {
   list: (params) => api.get('/patients/', { params }),
   get: (id) => api.get(`/patients/${id}/`),
   getMe: () => api.get('/patients/me/'),
-  updateMe: (data) => api.patch('/patients/me/', data),
+  updateMe: (data) => {
+    const isFormData = data instanceof FormData
+    return api.patch('/patients/me/', data,
+      isFormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : {}
+    )
+  },
   update: (id, data) => api.patch(`/patients/${id}/`, data),
   getMedicalRecords: (id) => api.get(`/patients/${id}/medical_records/`),
   getAppointments: (id) => api.get(`/patients/${id}/appointments/`),
@@ -157,11 +167,17 @@ export const doctorsAPI = {
   list: (params) => api.get('/doctors/', { params }),
   get: (id) => api.get(`/doctors/${id}/`),
   getMe: () => api.get('/doctors/me/'),
-  updateMe: (data) => api.patch('/doctors/me/', data),
+  updateMe: (data) => {
+    const isFormData = data instanceof FormData
+    return api.patch('/doctors/me/', data,
+      isFormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : {}
+    )
+  },
   dashboard: (id) => api.get(`/doctors/${id}/dashboard/`),
-  schedule: (id) => api.get(`/doctors/${id}/schedule/`),
   getMySchedule: () => api.get('/doctors/my_schedule/'),
   saveMySchedule: (data) => api.post('/doctors/my_schedule/', data),
+  deleteScheduleDay: (day) => api.delete(`/doctors/my_schedule/?day=${day}`),
+  deleteAllSchedule: () => api.delete('/doctors/my_schedule/'),
   getAvailableSlots: (id, date) => api.get(`/doctors/${id}/available_slots/?date=${date}`),
 }
 
@@ -178,11 +194,21 @@ export const departmentsAPI = {
 export const appointmentsAPI = {
   list: (params) => api.get('/appointments/', { params }),
   get: (id) => api.get(`/appointments/${id}/`),
-  create: (data) => api.post('/appointments/', data),
+  create: (data) => {
+    const isFormData = data instanceof FormData
+    return api.post('/appointments/', data, isFormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : {})
+  },
   update: (id, data) => api.patch(`/appointments/${id}/`, data),
+  delete: (id) => api.delete(`/appointments/${id}/`),
   cancel: (id, reason) => api.post(`/appointments/${id}/cancel/`, { reason }),
   approve: (id, notes) => api.post(`/appointments/${id}/approve/`, { notes }),
+  reject: (id, reason) => api.post(`/appointments/${id}/reject/`, { reason }),
   complete: (id, notes) => api.post(`/appointments/${id}/complete/`, { notes }),
+  uploadImages: (id, files) => {
+    const fd = new FormData()
+    files.forEach(f => fd.append('images', f))
+    return api.post(`/appointments/${id}/upload-images/`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+  },
   today: () => api.get('/appointments/today/'),
   upcoming: () => api.get('/appointments/upcoming/'),
   statistics: () => api.get('/appointments/statistics/'),
@@ -206,6 +232,9 @@ export const billingAPI = {
   processPayment: (id, data) => api.post(`/billing/${id}/process_payment/`, data),
   myBills: () => api.get('/billing/my_bills/'),
   revenueSummary: () => api.get('/billing/revenue_summary/'),
+  uploadReceipt: (id, formData) => api.post(`/billing/${id}/upload-receipt/`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  pendingReceipts: () => api.get('/billing/pending-receipts/'),
+  confirmReceipt: (receipt_id, action) => api.post('/billing/confirm-receipt/', { receipt_id, action }),
 }
 
 // ─── Notifications ─────────────────────────────────────────────────────────
@@ -214,6 +243,25 @@ export const notificationsAPI = {
   markRead: (id) => api.post(`/notifications/${id}/mark_read/`),
   markAllRead: () => api.post('/notifications/mark_all_read/'),
   unreadCount: () => api.get('/notifications/unread_count/'),
+}
+
+// ─── Blog ────────────────────────────────────────────────────────────────────
+export const blogAPI = {
+  list: (params) => api.get('/blog/posts/', { params }),
+  get: (id) => api.get(`/blog/posts/${id}/`),
+  create: (data) => {
+    const isFormData = data instanceof FormData
+    return api.post('/blog/posts/', data, isFormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : {})
+  },
+  update: (id, data) => {
+    const isFormData = data instanceof FormData
+    return api.patch(`/blog/posts/${id}/`, data, isFormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : {})
+  },
+  delete: (id) => api.delete(`/blog/posts/${id}/`),
+  like: (id, value) => api.post(`/blog/posts/${id}/like/`, { value }),
+  comment: (id, content, parent = null) => api.post(`/blog/posts/${id}/comment/`, { content, parent }),
+  deleteComment: (id) => api.delete(`/blog/comments/${id}/`),
+  updateComment: (id, content) => api.patch(`/blog/comments/${id}/`, { content }),
 }
 
 export default api

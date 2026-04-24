@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Clock, Save, Info, CheckCircle, Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Clock, Save, Info, CheckCircle, Calendar, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react'
 import { format, addWeeks, subWeeks, startOfWeek, addDays, isSameDay } from 'date-fns'
 import toast from 'react-hot-toast'
 import { doctorsAPI } from '../services/api'
@@ -77,16 +77,40 @@ export default function DoctorSchedulePage() {
 
   const saveMutation = useMutation({
     mutationFn: (data) => doctorsAPI.saveMySchedule(data),
-    onSuccess: () => {
+    onSuccess: (res) => {
       toast.success('Jadval muvaffaqiyatli saqlandi!')
       qc.invalidateQueries(['my-schedule'])
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
     },
     onError: (err) => {
-      const msg = err.response?.data?.message || err.response?.data?.detail || 'Saqlashda xato yuz berdi'
-      toast.error(msg)
+      // Don't show generic error if data was saved (backend bug workaround)
+      const serverMsg = err.response?.data?.message
+      const details = err.response?.data?.details
+      if (details && Array.isArray(details) && details.length > 0) {
+        toast.error(`Validatsiya xatosi: ${details[0].message}`)
+      } else if (serverMsg && serverMsg !== 'An unexpected error occurred. Please try again later.') {
+        toast.error(serverMsg)
+      } else {
+        // Refresh anyway in case data was partially saved
+        qc.invalidateQueries(['my-schedule'])
+        toast.error('Jadval saqlanishida muammo yuz berdi. Sahifani yangilang.')
+      }
     },
+  })
+
+  const deleteDayMutation = useMutation({
+    mutationFn: (dayId) => doctorsAPI.deleteScheduleDay(dayId),
+    onSuccess: (_, dayId) => {
+      toast.success("Kun jadvali o'chirildi")
+      setSchedule(prev => {
+        const next = { ...prev }
+        delete next[dayId]
+        return next
+      })
+      qc.invalidateQueries(['my-schedule'])
+    },
+    onError: () => toast.error("O'chirishda xato yuz berdi"),
   })
 
   const toggleDay = (dayId) => {
@@ -295,6 +319,14 @@ export default function DoctorSchedulePage() {
                   {/* Right: time inputs */}
                   {isActive ? (
                     <div className="flex items-center gap-3 flex-wrap">
+                      <button
+                        type="button"
+                        title="Bu kunni o'chirish"
+                        onClick={(e) => { e.stopPropagation(); deleteDayMutation.mutate(day.id) }}
+                        className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-all"
+                      >
+                        <Trash2 size={13} />
+                      </button>
                       <div className="flex items-center gap-2">
                         <Clock size={13} className="text-slate-500" />
                         <div className="flex flex-col items-start">

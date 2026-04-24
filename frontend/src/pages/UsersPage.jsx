@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import {
   UserCheck, Plus, ToggleLeft, ToggleRight, Upload,
-  Eye, EyeOff, Copy, CheckCircle2, Key, X, Camera
+  Eye, EyeOff, Copy, CheckCircle2, Key, X, Camera, Edit2, Trash2
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { usersAPI, departmentsAPI } from '../services/api'
@@ -65,6 +65,7 @@ export default function UsersPage() {
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
+  const [editUser, setEditUser] = useState(null)  // null = create, object = edit
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [avatarPreview, setAvatarPreview] = useState(null)
@@ -86,21 +87,54 @@ export default function UsersPage() {
 
   const createMutation = useMutation({
     mutationFn: (formData) => usersAPI.create(formData),
-    onSuccess: (res, vars, ctx) => {
+    onSuccess: (res) => {
       toast.success('Hisob muvaffaqiyatli yaratildi!')
       qc.invalidateQueries(['users'])
       setModalOpen(false)
-      // show the password
-      setGeneratedPassword(ctx?.password)
+      reset()
+      setAvatarPreview(null)
+    },
+    onError: (e) => {
+      const errorData = e.response?.data
+      if (errorData?.email) {
+        toast.error(`Email xatosi: ${errorData.email}`)
+      } else if (errorData?.username) {
+        toast.error(`Username xatosi: ${errorData.username}`)
+      } else if (errorData?.detail) {
+        toast.error(errorData.detail)
+      } else {
+        toast.error('Xatolik yuz berdi. Iltimos qaytadan urinib ko\'ring.')
+      }
+    },
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }) => usersAPI.update(id, data),
+    onSuccess: () => {
+      toast.success('Foydalanuvchi yangilandi!')
+      qc.invalidateQueries(['users'])
+      setModalOpen(false)
+      setEditUser(null)
       reset()
       setAvatarPreview(null)
     },
     onError: (e) => toast.error(e.response?.data?.message || e.response?.data?.detail || 'Xato yuz berdi'),
   })
 
+  const deleteMutation = useMutation({
+    mutationFn: (id) => usersAPI.delete(id),
+    onSuccess: () => { toast.success('Foydalanuvchi o\'chirildi'); qc.invalidateQueries(['users']) },
+    onError: (e) => toast.error(e.response?.data?.message || 'O\'chirishda xato'),
+  })
+
   const activateMutation = useMutation({
     mutationFn: (id) => usersAPI.activate(id),
     onSuccess: () => { toast.success('Holat yangilandi'); qc.invalidateQueries(['users']) },
+  })
+
+  const verifyMutation = useMutation({
+    mutationFn: (id) => usersAPI.verify(id),
+    onSuccess: () => { toast.success('Tasdiqlash holati yangilandi'); qc.invalidateQueries(['users']) },
   })
 
   const users = data?.results || data || []
@@ -113,6 +147,19 @@ export default function UsersPage() {
     setValue('avatar_file', file)
   }
 
+  const openEdit = (u) => {
+    setEditUser(u)
+    reset({
+      first_name: u.first_name || '',
+      last_name: u.last_name || '',
+      email: u.email || '',
+      phone: u.phone || '',
+      role: u.role || '',
+    })
+    setAvatarPreview(u.avatar || null)
+    setModalOpen(true)
+  }
+
   const generatePassword = () => {
     const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#'
     let pwd = ''
@@ -122,7 +169,12 @@ export default function UsersPage() {
   }
 
   const onSubmit = (data) => {
-    if (data.password !== data.password_confirm) {
+    // Prevent double submission
+    if (createMutation.isPending || updateMutation.isPending) {
+      return
+    }
+
+    if (!editUser && data.password !== data.password_confirm) {
       toast.error('Parollar mos kelmadi!')
       return
     }
@@ -134,9 +186,16 @@ export default function UsersPage() {
     formData.append('last_name', data.last_name)
     formData.append('role', data.role)
     formData.append('phone', data.phone || '')
-    formData.append('password', data.password)
-    if (data.age) formData.append('age', data.age)
+    formData.append('gender', data.gender || 'male')
     if (data.avatar_file) formData.append('avatar', data.avatar_file)
+
+    if (editUser) {
+      updateMutation.mutate({ id: editUser.id, data: formData })
+      return
+    }
+
+    if (data.age) formData.append('age', data.age)
+    formData.append('password', data.password)
 
     if (data.role === 'doctor') {
       formData.append('specialization', data.specialization || '')
@@ -147,9 +206,8 @@ export default function UsersPage() {
       if (data.department) formData.append('department', data.department)
     }
 
-    createMutation.mutate(formData, {
-      onSuccess: () => setGeneratedPassword(data.password),
-    })
+    createMutation.mutate(formData)
+    setGeneratedPassword(data.password)
   }
 
   return (
@@ -159,7 +217,7 @@ export default function UsersPage() {
           <h1 className="section-title">Foydalanuvchilar Boshqaruvi</h1>
           <p className="section-subtitle">Barcha xodimlar va ularning rollarini boshqaring</p>
         </div>
-        <button onClick={() => { reset(); setAvatarPreview(null); setModalOpen(true) }} className="btn-primary">
+        <button onClick={() => { reset(); setAvatarPreview(null); setEditUser(null); setModalOpen(true) }} className="btn-primary">
           <Plus size={16} /> Yangi Xodim
         </button>
       </div>
@@ -209,9 +267,9 @@ export default function UsersPage() {
                       </td>
                       <td className="table-cell text-slate-500 text-xs">{u.phone || '—'}</td>
                       <td className="table-cell">
-                        <span className={`badge border text-[10px] ${u.is_verified ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' : 'bg-slate-500/15 text-slate-400 border-slate-500/30'}`}>
+                        <button onClick={() => verifyMutation.mutate(u.id)} className={`badge border text-[10px] cursor-pointer hover:opacity-80 transition-opacity ${u.is_verified ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' : 'bg-slate-500/15 text-slate-400 border-slate-500/30'}`}>
                           {u.is_verified ? '✓ Tasdiqlangan' : 'Tasdiqlanmagan'}
-                        </span>
+                        </button>
                       </td>
                       <td className="table-cell">
                         <button onClick={() => activateMutation.mutate(u.id)} className="text-slate-400 hover:text-primary-400 transition-colors">
@@ -221,7 +279,18 @@ export default function UsersPage() {
                       <td className="table-cell text-slate-500 text-xs">
                         {u.created_at ? new Date(u.created_at).toLocaleDateString() : '—'}
                       </td>
-                      <td className="table-cell text-xs text-slate-500">#{u.id}</td>
+                      <td className="table-cell">
+                        <div className="flex items-center gap-1.5">
+                          <button onClick={() => openEdit(u)} className="p-1.5 text-slate-400 hover:text-blue-400 hover:bg-blue-400/10 rounded-lg transition-all" title="Tahrirlash">
+                            <Edit2 size={14} />
+                          </button>
+                          <button onClick={() => {
+                            if (window.confirm(`"${u.full_name}" ni o'chirishni tasdiqlaysizmi?`)) deleteMutation.mutate(u.id)
+                          }} className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all" title="O'chirish">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -233,7 +302,7 @@ export default function UsersPage() {
       </div>
 
       {/* Create User Modal */}
-      <Modal open={modalOpen} onClose={() => { setModalOpen(false); setAvatarPreview(null) }} title="Yangi Xodim Qo'shish" size="xl">
+      <Modal open={modalOpen} onClose={() => { setModalOpen(false); setAvatarPreview(null); setEditUser(null) }} title={editUser ? 'Foydalanuvchini Tahrirlash' : "Yangi Xodim Qo'shish"} size="xl">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 max-h-[75vh] overflow-y-auto pr-1">
 
           {/* Rol */}
@@ -294,10 +363,18 @@ export default function UsersPage() {
             <FormField label="Yosh">
               <input type="number" min="18" max="80" {...register('age')} className="input-field" placeholder="35" />
             </FormField>
-            <FormField label="Username">
-              <input {...register('username')} className="input-field" placeholder="Avtomatik email dan" />
+            <FormField label="Jins" required>
+              <select {...register('gender', { required: 'Jins tanlang' })} className="input-field">
+                <option value="">Tanlang...</option>
+                <option value="male">Erkak</option>
+                <option value="female">Ayol</option>
+              </select>
             </FormField>
           </div>
+
+          <FormField label="Username">
+            <input {...register('username')} className="input-field" placeholder="Avtomatik email dan" />
+          </FormField>
 
           {/* Doctor uchun qo'shimcha */}
           {watchedRole === 'doctor' && (
@@ -348,6 +425,7 @@ export default function UsersPage() {
           )}
 
           {/* Parol */}
+          {!editUser && (
           <div className="border border-slate-700/40 rounded-2xl p-5 bg-slate-800/30 space-y-4">
             <div className="flex items-center justify-between mb-1">
               <p className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
@@ -400,13 +478,14 @@ export default function UsersPage() {
               <p className="text-xs text-amber-400">💡 Bu parolni doktorgа bering — tizimga kirish uchun ishlatadi. Keyinchalik ko'rsatilmaydi!</p>
             </div>
           </div>
+          )}
 
           <div className="flex gap-3 pt-2">
-            <button type="button" onClick={() => { setModalOpen(false); setAvatarPreview(null) }} className="btn-secondary flex-1 justify-center">
+            <button type="button" onClick={() => { setModalOpen(false); setAvatarPreview(null); setEditUser(null) }} className="btn-secondary flex-1 justify-center">
               Bekor qilish
             </button>
-            <button type="submit" disabled={createMutation.isPending} className="btn-primary flex-1 justify-center">
-              {createMutation.isPending ? 'Yaratilmoqda...' : 'Hisob Yaratish'}
+            <button type="submit" disabled={createMutation.isPending || updateMutation.isPending} className="btn-primary flex-1 justify-center">
+              {(createMutation.isPending || updateMutation.isPending) ? 'Saqlanmoqda...' : (editUser ? 'Saqlash' : 'Hisob Yaratish')}
             </button>
           </div>
         </form>
