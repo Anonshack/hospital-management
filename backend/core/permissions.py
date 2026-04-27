@@ -7,14 +7,14 @@ from apps.users.models import User
 
 
 class IsAdmin(BasePermission):
-    """Only Admin users can access."""
+    """Only Admin users (or Django superusers) can access."""
     message = "Access denied. Admin privileges required."
 
     def has_permission(self, request, view):
         return (
             request.user and
             request.user.is_authenticated and
-            request.user.role == User.Role.ADMIN
+            (request.user.role == User.Role.ADMIN or request.user.is_superuser)
         )
 
 

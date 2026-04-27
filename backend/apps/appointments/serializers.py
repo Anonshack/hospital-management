@@ -58,6 +58,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
     patient_emergency_contact_name = serializers.CharField(source='patient.emergency_contact_name', read_only=True)
     patient_emergency_contact_phone = serializers.CharField(source='patient.emergency_contact_phone', read_only=True)
     patient_allergies = serializers.CharField(source='patient.allergies', read_only=True)
+    patient_chronic_conditions = serializers.CharField(source='patient.chronic_conditions', read_only=True)
     patient_avatar = serializers.SerializerMethodField()
     patient_phone = serializers.SerializerMethodField()
     doctor_name = serializers.CharField(source='doctor.full_name', read_only=True)
@@ -71,7 +72,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
             'id', 'patient', 'patient_name', 'patient_email', 'patient_blood_group',
             'patient_age', 'patient_address', 'patient_insurance_number',
             'patient_emergency_contact_name', 'patient_emergency_contact_phone',
-            'patient_allergies', 'patient_avatar', 'patient_phone',
+            'patient_allergies', 'patient_chronic_conditions', 'patient_avatar', 'patient_phone',
             'doctor', 'doctor_name', 'doctor_specialization',
             'date', 'time', 'status', 'status_display',
             'reason', 'notes', 'symptoms', 'is_follow_up', 'follow_up_for',

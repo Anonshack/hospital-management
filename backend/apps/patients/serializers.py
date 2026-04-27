@@ -44,10 +44,12 @@ class PatientListSerializer(serializers.ModelSerializer):
     email = serializers.ReadOnlyField()
     age = serializers.ReadOnlyField()
     avatar = serializers.SerializerMethodField()
+    phone = serializers.SerializerMethodField()
 
     class Meta:
         model = Patient
-        fields = ['id', 'full_name', 'email', 'age', 'blood_group', 'avatar', 'created_at']
+        fields = ['id', 'full_name', 'email', 'age', 'blood_group', 'avatar',
+                  'insurance_number', 'phone', 'created_at']
 
     def get_avatar(self, obj):
         if obj.user.avatar:
@@ -56,3 +58,6 @@ class PatientListSerializer(serializers.ModelSerializer):
                 return request.build_absolute_uri(obj.user.avatar.url)
             return obj.user.avatar.url
         return None
+
+    def get_phone(self, obj):
+        return obj.user.phone

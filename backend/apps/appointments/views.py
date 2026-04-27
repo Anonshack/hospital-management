@@ -108,7 +108,6 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
         appointment = serializer.instance
-        # Get the auto-created bill id
         bill_id = None
         try:
             bill_id = appointment.bill.id
@@ -117,10 +116,11 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         data = AppointmentSerializer(appointment, context={'request': request}).data
         data['bill_id'] = bill_id
         return Response(data, status=status.HTTP_201_CREATED)
+
+    def destroy(self, request, *args, **kwargs):
         appointment = self.get_object()
         user = request.user
-        # Admin can delete any; doctor can delete their own; patient can delete their own
-        if user.role == User.Role.ADMIN:
+        if user.role == User.Role.ADMIN or user.is_superuser:
             pass
         elif user.role == User.Role.DOCTOR and appointment.doctor.user == user:
             pass

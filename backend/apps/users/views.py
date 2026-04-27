@@ -274,12 +274,8 @@ class UserViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], permission_classes=[IsAdmin])
     def promote_to_admin(self, request, pk=None):
         user = self.get_object()
-        if not request.user.is_superuser:
-            return Response({'error': 'Faqat superuser admin tayinlay oladi.'}, status=status.HTTP_403_FORBIDDEN)
-        
         if user.role == User.Role.ADMIN:
             return Response({'error': 'Bu user allaqachon admin.'}, status=status.HTTP_400_BAD_REQUEST)
-        
         user.role = User.Role.ADMIN
         user.save()
         return Response({'message': f'{user.get_full_name()} admin qilib tayinlandi.'})
