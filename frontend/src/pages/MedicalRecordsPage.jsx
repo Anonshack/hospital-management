@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { FileText, Eye, Plus } from 'lucide-react'
+import { FileText, Eye } from 'lucide-react'
 import { format } from 'date-fns'
 import { medicalRecordsAPI } from '../services/api'
-import useAuthStore from '../store/authStore'
+import useLanguageStore from '../store/languageStore'
 import { SearchInput, Pagination, LoadingPage, EmptyState, Modal } from '../components/common/UI'
 
 export default function MedicalRecordsPage() {
-  const { user } = useAuthStore()
+  const t = useLanguageStore(state => state.t)
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [detail, setDetail] = useState(null)
@@ -24,23 +24,23 @@ export default function MedicalRecordsPage() {
     <div className="space-y-6 animate-fade-in">
       <div className="page-header flex items-center justify-between">
         <div>
-          <h1 className="section-title">Medical Records</h1>
-          <p className="section-subtitle">Patient health history and diagnoses</p>
+          <h1 className="section-title">{t('medicalRecords')}</h1>
+          <p className="section-subtitle">{t('medicalRecordsSubtitle')}</p>
         </div>
       </div>
 
-      <SearchInput value={search} onChange={setSearch} placeholder="Search by diagnosis or patient..." />
+      <SearchInput value={search} onChange={setSearch} placeholder={t('searchByDiagnosis')} />
 
       <div className="table-wrapper">
         {isLoading ? <LoadingPage /> : records.length === 0 ? (
-          <EmptyState icon={FileText} title="No medical records found" />
+          <EmptyState icon={FileText} title={t('noMedicalRecords')} />
         ) : (
           <>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr>
-                    {['Patient', 'Doctor', 'Diagnosis', 'Follow-up', 'Date', 'Actions'].map(h => (
+                    {[t('patient'), t('doctor'), t('diagnosis'), t('followUp'), t('date'), t('actions')].map(h => (
                       <th key={h} className="table-header">{h}</th>
                     ))}
                   </tr>
@@ -70,15 +70,15 @@ export default function MedicalRecordsPage() {
         )}
       </div>
 
-      <Modal open={!!detail} onClose={() => setDetail(null)} title="Medical Record Details" size="lg">
+      <Modal open={!!detail} onClose={() => setDetail(null)} title={t('recordDetails')} size="lg">
         {detail && (
           <div className="space-y-5">
             <div className="grid grid-cols-2 gap-4">
               {[
-                ['Patient', detail.patient_name],
-                ['Doctor', detail.doctor_name ? `Dr. ${detail.doctor_name}` : '—'],
-                ['Date', detail.created_at ? format(new Date(detail.created_at), 'MMMM d, yyyy') : '—'],
-                ['Follow-up Date', detail.follow_up_date || 'None'],
+                [t('patient'), detail.patient_name],
+                [t('doctor'), detail.doctor_name ? `Dr. ${detail.doctor_name}` : '—'],
+                [t('date'), detail.created_at ? format(new Date(detail.created_at), 'MMMM d, yyyy') : '—'],
+                [t('followUp'), detail.follow_up_date || t('noData')],
               ].map(([label, value]) => (
                 <div key={label}>
                   <p className="text-xs text-slate-500 uppercase tracking-wider">{label}</p>
@@ -88,20 +88,20 @@ export default function MedicalRecordsPage() {
             </div>
 
             <div>
-              <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Diagnosis</p>
+              <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">{t('diagnosis')}</p>
               <p className="text-sm text-slate-200 bg-slate-800/60 rounded-lg p-3 leading-relaxed">{detail.diagnosis}</p>
             </div>
 
             {detail.chief_complaint && (
               <div>
-                <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Chief Complaint</p>
+                <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">{t('symptoms')}</p>
                 <p className="text-sm text-slate-300 bg-slate-800/60 rounded-lg p-3">{detail.chief_complaint}</p>
               </div>
             )}
 
             {detail.vital_signs && Object.keys(detail.vital_signs).length > 0 && (
               <div>
-                <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">Vital Signs</p>
+                <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">{t('treatment')}</p>
                 <div className="grid grid-cols-3 gap-2">
                   {Object.entries(detail.vital_signs).map(([key, val]) => (
                     <div key={key} className="bg-slate-800/60 rounded-lg p-2.5 text-center">
@@ -115,7 +115,7 @@ export default function MedicalRecordsPage() {
 
             {detail.prescriptions?.length > 0 && (
               <div>
-                <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">Prescriptions ({detail.prescriptions.length})</p>
+                <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">{t('prescription')} ({detail.prescriptions.length})</p>
                 <div className="space-y-2">
                   {detail.prescriptions.map((p, i) => (
                     <div key={i} className="bg-slate-800/60 rounded-lg p-3 flex items-start gap-3">
@@ -133,7 +133,7 @@ export default function MedicalRecordsPage() {
 
             {detail.notes && (
               <div>
-                <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Notes</p>
+                <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">{t('notes')}</p>
                 <p className="text-sm text-slate-300 bg-slate-800/60 rounded-lg p-3 leading-relaxed">{detail.notes}</p>
               </div>
             )}

@@ -3,56 +3,12 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Calendar, Users, UserCheck, Stethoscope,
   FileText, CreditCard, Building2, Bell, ChevronLeft,
-  ChevronRight, LogOut, User, Menu, X, Activity, Clock, BookOpen, Sun, Moon
+  ChevronRight, LogOut, User, Menu, X, Activity, Clock, BookOpen, Sun, Moon, Plus
 } from 'lucide-react'
 import useAuthStore from '../../store/authStore'
 import useThemeStore from '../../store/themeStore'
+import useLanguageStore from '../../store/languageStore'
 import NotificationBell from './NotificationBell'
-
-const navConfig = {
-  admin: [
-    { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/appointments', icon: Calendar, label: 'Appointments' },
-    { to: '/patients', icon: Users, label: 'Patients' },
-    { to: '/doctors', icon: Stethoscope, label: 'Doctors' },
-    { to: '/departments', icon: Building2, label: 'Departments' },
-    { to: '/medical-records', icon: FileText, label: 'Medical Records' },
-    { to: '/billing', icon: CreditCard, label: 'Billing' },
-    { to: '/users', icon: UserCheck, label: 'User Management' },
-    { to: '/blog', icon: BookOpen, label: 'Blog' },
-  ],
-  doctor: [
-    { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/appointments', icon: Calendar, label: 'Appointments' },
-    { to: '/patients', icon: Users, label: 'Patients' },
-    { to: '/medical-records', icon: FileText, label: 'Medical Records' },
-    { to: '/departments', icon: Building2, label: 'Departments' },
-    { to: '/schedule', icon: Clock, label: 'My Schedule' },
-    { to: '/blog', icon: BookOpen, label: 'Blog' },
-  ],
-  nurse: [
-    { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/appointments', icon: Calendar, label: 'Appointments' },
-    { to: '/patients', icon: Users, label: 'Patients' },
-    { to: '/medical-records', icon: FileText, label: 'Medical Records' },
-  ],
-  receptionist: [
-    { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/appointments', icon: Calendar, label: 'Appointments' },
-    { to: '/patients', icon: Users, label: 'Patients' },
-    { to: '/doctors', icon: Stethoscope, label: 'Doctors' },
-    { to: '/billing', icon: CreditCard, label: 'Billing' },
-    { to: '/departments', icon: Building2, label: 'Departments' },
-  ],
-  patient: [
-    { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/appointments', icon: Calendar, label: 'My Appointments' },
-    { to: '/appointments/book', icon: Calendar, label: 'Book Appointment' },
-    { to: '/medical-records', icon: FileText, label: 'My Records' },
-    { to: '/billing', icon: CreditCard, label: 'My Bills' },
-    { to: '/blog', icon: BookOpen, label: 'Blog' },
-  ],
-}
 
 const roleColors = {
   admin: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
@@ -67,7 +23,56 @@ export default function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const { user, logout } = useAuthStore()
   const { theme, toggleTheme } = useThemeStore()
+  const lang = useLanguageStore(state => state.lang)
+  const setLang = useLanguageStore(state => state.setLang)
+  const t = useLanguageStore(state => state.t)
   const navigate = useNavigate()
+  
+  const navConfig = {
+    admin: [
+      { to: '/dashboard', icon: LayoutDashboard, label: t('dashboard') },
+      { to: '/appointments', icon: Calendar, label: t('appointments') },
+      { to: '/patients', icon: Users, label: t('patients') },
+      { to: '/doctors', icon: Stethoscope, label: t('doctors') },
+      { to: '/departments', icon: Building2, label: t('departments') },
+      { to: '/medical-records', icon: FileText, label: t('medicalRecords') },
+      { to: '/billing', icon: CreditCard, label: t('billing') },
+      { to: '/users', icon: UserCheck, label: t('users') },
+      { to: '/blog', icon: BookOpen, label: t('blog') },
+    ],
+    doctor: [
+      { to: '/dashboard', icon: LayoutDashboard, label: t('dashboard') },
+      { to: '/appointments', icon: Calendar, label: t('appointments') },
+      { to: '/patients', icon: Users, label: t('patients') },
+      { to: '/medical-records', icon: FileText, label: t('medicalRecords') },
+      { to: '/departments', icon: Building2, label: t('departments') },
+      { to: '/schedule', icon: Clock, label: t('schedule') },
+      { to: '/blog', icon: BookOpen, label: t('blog') },
+    ],
+    nurse: [
+      { to: '/dashboard', icon: LayoutDashboard, label: t('dashboard') },
+      { to: '/appointments', icon: Calendar, label: t('appointments') },
+      { to: '/patients', icon: Users, label: t('patients') },
+      { to: '/medical-records', icon: FileText, label: t('medicalRecords') },
+    ],
+    receptionist: [
+      { to: '/dashboard', icon: LayoutDashboard, label: t('dashboard') },
+      { to: '/appointments', icon: Calendar, label: t('appointments') },
+      { to: '/patients', icon: Users, label: t('patients') },
+      { to: '/doctors', icon: Stethoscope, label: t('doctors') },
+      { to: '/billing', icon: CreditCard, label: t('billing') },
+      { to: '/departments', icon: Building2, label: t('departments') },
+    ],
+    patient: [
+      { to: '/dashboard', icon: LayoutDashboard, label: t('dashboard') },
+      { to: '/appointments', icon: Calendar, label: t('appointments') },
+      { to: '/appointments/book', icon: Plus, label: t('bookAppointment') },
+      { to: '/medical-records', icon: FileText, label: t('medicalRecords') },
+      { to: '/billing', icon: CreditCard, label: t('billing') },
+      { to: '/blog', icon: BookOpen, label: t('blog') },
+    ],
+  }
+  
   const navItems = navConfig[user?.role] || navConfig.patient
 
   const handleLogout = async () => {
@@ -201,6 +206,17 @@ export default function Layout() {
           </button>
           <div className="flex-1" />
           <div className="flex items-center gap-3">
+            {/* Language Selector */}
+            <select 
+              value={lang} 
+              onChange={(e) => setLang(e.target.value)}
+              className={`text-xs px-2 py-1 rounded-lg border transition-all ${theme === 'light' ? 'bg-white border-slate-300 text-slate-700' : 'bg-slate-800 border-slate-600 text-slate-300'}`}
+            >
+              <option value="uz">🇺🇿 O'zbekcha</option>
+              <option value="ru">🇷🇺 Русский</option>
+              <option value="en">🇬🇧 English</option>
+            </select>
+            
             <button
               onClick={toggleTheme}
               className={`p-2 rounded-lg transition-all ${theme === 'light' ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-100' : 'text-slate-400 hover:text-white hover:bg-slate-700/60'}`}

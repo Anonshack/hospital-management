@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import useLanguageStore from '../store/languageStore'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import {
@@ -60,6 +61,7 @@ function PasswordDisplay({ password, onClose }) {
 }
 
 export default function UsersPage() {
+  const t = useLanguageStore(state => state.t)
   const qc = useQueryClient()
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
@@ -243,35 +245,35 @@ export default function UsersPage() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between page-header mb-0">
         <div>
-          <h1 className="section-title">Foydalanuvchilar Boshqaruvi</h1>
-          <p className="section-subtitle">Barcha xodimlar va ularning rollarini boshqaring</p>
+          <h1 className="section-title">{t('userManagement')}</h1>
+          <p className="section-subtitle">{t('allStaff')}</p>
         </div>
         <button onClick={() => { reset(); setAvatarPreview(null); setEditUser(null); setModalOpen(true) }} className="btn-primary">
-          <Plus size={16} /> Yangi Xodim
+          <Plus size={16} /> {t('newEmployee')}
         </button>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3">
-        <SearchInput value={search} onChange={setSearch} placeholder="Ism yoki email bo'yicha qidirish..." />
+        <SearchInput value={search} onChange={setSearch} placeholder={t('searchByNameOrEmail')} />
         <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} className="input-field sm:w-44">
-          <option value="">Barcha Rollar</option>
-          <option value="doctor">Doktor</option>
-          <option value="nurse">Hamshira</option>
-          <option value="receptionist">Registrator</option>
-          <option value="patient">Bemor</option>
+          <option value="">{t('allRoles')}</option>
+          <option value="doctor">{t('doctor')}</option>
+          <option value="nurse">{t('nurse')}</option>
+          <option value="receptionist">{t('receptionist')}</option>
+          <option value="patient">{t('patient')}</option>
         </select>
       </div>
 
       <div className="table-wrapper">
         {isLoading ? <LoadingPage /> : users.length === 0 ? (
-          <EmptyState icon={UserCheck} title="Foydalanuvchilar topilmadi" />
+          <EmptyState icon={UserCheck} title={t('noData')} />
         ) : (
           <>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr>
-                    {['Foydalanuvchi', 'Email', 'Rol', 'Telefon', 'Tasdiqlangan', 'Faol', 'Qo\'shilgan', 'Harakatlar'].map(h => (
+                    {[t('username'), t('email'), t('role'), t('phone'), t('verified'), t('active'), t('createdAt'), t('actions')].map(h => (
                       <th key={h} className="table-header">{h}</th>
                     ))}
                   </tr>
@@ -297,7 +299,7 @@ export default function UsersPage() {
                       <td className="table-cell text-slate-500 text-xs">{u.phone || '—'}</td>
                       <td className="table-cell">
                         <button onClick={() => verifyMutation.mutate(u.id)} className={`badge border text-[10px] cursor-pointer hover:opacity-80 transition-opacity ${u.is_verified ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' : 'bg-slate-500/15 text-slate-400 border-slate-500/30'}`}>
-                          {u.is_verified ? '✓ Tasdiqlangan' : 'Tasdiqlanmagan'}
+                          {u.is_verified ? `✓ ${t('verified')}` : t('noData')}
                         </button>
                       </td>
                       <td className="table-cell">
@@ -311,23 +313,23 @@ export default function UsersPage() {
                       <td className="table-cell">
                         <div className="flex items-center gap-1.5">
                           {u.role !== 'admin' && (
-                            <button 
+                            <button
                               onClick={() => {
-                                if (window.confirm(`"${u.full_name}" ni admin qilib tayinlaysizmi?`)) 
+                                if (window.confirm(`"${u.full_name}" ${t('confirmPromoteAdmin')}`))
                                   promoteToAdminMutation.mutate(u.id)
-                              }} 
-                              className="p-1.5 text-slate-400 hover:text-amber-400 hover:bg-amber-400/10 rounded-lg transition-all" 
-                              title="Admin qilish"
+                              }}
+                              className="p-1.5 text-slate-400 hover:text-amber-400 hover:bg-amber-400/10 rounded-lg transition-all"
+                              title={t('promoteToAdmin')}
                             >
                               👑
                             </button>
                           )}
-                          <button onClick={() => openEdit(u)} className="p-1.5 text-slate-400 hover:text-blue-400 hover:bg-blue-400/10 rounded-lg transition-all" title="Tahrirlash">
+                          <button onClick={() => openEdit(u)} className="p-1.5 text-slate-400 hover:text-blue-400 hover:bg-blue-400/10 rounded-lg transition-all" title={t('edit')}>
                             <Edit2 size={14} />
                           </button>
                           <button onClick={() => {
-                            if (window.confirm(`"${u.full_name}" ni o'chirishni tasdiqlaysizmi?`)) deleteMutation.mutate(u.id)
-                          }} className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all" title="O'chirish">
+                            if (window.confirm(`"${u.full_name}" ${t('confirmDeleteUser')}`)) deleteMutation.mutate(u.id)
+                          }} className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all" title={t('delete')}>
                             <Trash2 size={14} />
                           </button>
                         </div>
@@ -343,17 +345,17 @@ export default function UsersPage() {
       </div>
 
       {/* Create User Modal */}
-      <Modal open={modalOpen} onClose={() => { setModalOpen(false); setAvatarPreview(null); setEditUser(null) }} title={editUser ? 'Foydalanuvchini Tahrirlash' : "Yangi Xodim Qo'shish"} size="xl">
+      <Modal open={modalOpen} onClose={() => { setModalOpen(false); setAvatarPreview(null); setEditUser(null) }} title={editUser ? t('editUser') : t('newEmployee')} size="xl">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 max-h-[75vh] overflow-y-auto pr-1">
 
           {/* Rol */}
-          <FormField label="Rol" error={errors.role?.message} required>
-            <select {...register('role', { required: 'Rol tanlang' })} className="input-field" disabled={!!editUser}>
-              <option value="">Rol tanlang...</option>
-              <option value="admin">👑 Admin</option>
-              <option value="doctor">👨‍⚕️ Doktor</option>
-              <option value="nurse">👩‍⚕️ Hamshira</option>
-              <option value="receptionist">💼 Registrator</option>
+          <FormField label={t('role')} error={errors.role?.message} required>
+            <select {...register('role', { required: t('required') })} className="input-field" disabled={!!editUser}>
+              <option value="">{t('role')}...</option>
+              <option value="admin">👑 {t('admin')}</option>
+              <option value="doctor">👨‍⚕️ {t('doctor')}</option>
+              <option value="nurse">👩‍⚕️ {t('nurse')}</option>
+              <option value="receptionist">💼 {t('receptionist')}</option>
             </select>
           </FormField>
 
@@ -376,9 +378,9 @@ export default function UsersPage() {
               <input ref={avatarRef} type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
             </div>
             <div className="text-sm text-slate-400">
-              <p className="font-medium text-slate-300 mb-1">Profil rasm</p>
+              <p className="font-medium text-slate-300 mb-1">{t('profileImage')}</p>
               <p className="text-xs">JPG, PNG, GIF — max 5MB</p>
-              <p className="text-xs text-slate-500">Rasm yuklash ixtiyoriy</p>
+              <p className="text-xs text-slate-500">{t('imageOptional')}</p>
             </div>
           </div>
 

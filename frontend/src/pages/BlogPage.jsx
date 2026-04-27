@@ -4,6 +4,7 @@ import { Heart, MessageCircle, ThumbsDown, Plus, Trash2, Edit2, Send, X, Chevron
 import toast from 'react-hot-toast'
 import { blogAPI } from '../services/api'
 import useAuthStore from '../store/authStore'
+import useLanguageStore from '../store/languageStore'
 import { Modal, LoadingPage, EmptyState, Spinner } from '../components/common/UI'
 
 function Avatar({ src, name, size = 8 }) {
@@ -15,7 +16,7 @@ function Avatar({ src, name, size = 8 }) {
   )
 }
 
-function CommentItem({ comment, postId, user, onDelete }) {
+function CommentItem({ comment, postId, user, onDelete, t }) {
   const [showReplies, setShowReplies] = useState(false)
   const [replyText, setReplyText] = useState('')
   const [showReplyInput, setShowReplyInput] = useState(false)
@@ -40,11 +41,11 @@ function CommentItem({ comment, postId, user, onDelete }) {
           </div>
           <div className="flex items-center gap-3 mt-1 px-1">
             <button onClick={() => setShowReplyInput(v => !v)} className="text-xs text-slate-500 hover:text-primary-400 transition-colors">
-              Reply
+              {t('reply')}
             </button>
             {canDelete && (
               <button onClick={() => onDelete(comment.id)} className="text-xs text-slate-500 hover:text-red-400 transition-colors">
-                Delete
+                {t('delete')}
               </button>
             )}
             <span className="text-xs text-slate-600">{new Date(comment.created_at).toLocaleDateString()}</span>
@@ -54,7 +55,7 @@ function CommentItem({ comment, postId, user, onDelete }) {
               <input
                 value={replyText}
                 onChange={e => setReplyText(e.target.value)}
-                placeholder="Write a reply..."
+                placeholder={t('writeReply')}
                 className="input-field text-sm py-1.5 flex-1"
                 onKeyDown={e => e.key === 'Enter' && replyText.trim() && replyMutation.mutate(replyText.trim())}
               />
@@ -75,7 +76,7 @@ function CommentItem({ comment, postId, user, onDelete }) {
         <div className="ml-10">
           <button onClick={() => setShowReplies(v => !v)} className="text-xs text-slate-500 hover:text-primary-400 flex items-center gap-1 mb-2">
             {showReplies ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-            {comment.replies.length} {comment.replies.length === 1 ? 'reply' : 'replies'}
+            {comment.replies.length} {t('reply')}
           </button>
           {showReplies && (
             <div className="space-y-2 border-l-2 border-slate-700/50 pl-3">
@@ -88,7 +89,7 @@ function CommentItem({ comment, postId, user, onDelete }) {
                       <p className="text-sm text-slate-300 mt-0.5">{reply.content}</p>
                     </div>
                     {(user?.role === 'admin' || reply.author === user?.id) && (
-                      <button onClick={() => onDelete(reply.id)} className="text-xs text-slate-500 hover:text-red-400 mt-1 px-1">Delete</button>
+                      <button onClick={() => onDelete(reply.id)} className="text-xs text-slate-500 hover:text-red-400 mt-1 px-1">{t('delete')}</button>
                     )}
                   </div>
                 </div>
@@ -101,7 +102,7 @@ function CommentItem({ comment, postId, user, onDelete }) {
   )
 }
 
-function PostCard({ post, user, onEdit, onDelete }) {
+function PostCard({ post, user, onEdit, onDelete, t }) {
   const [showComments, setShowComments] = useState(false)
   const [commentText, setCommentText] = useState('')
   const qc = useQueryClient()
@@ -176,21 +177,20 @@ function PostCard({ post, user, onEdit, onDelete }) {
           className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-emerald-400 transition-colors ml-auto"
         >
           <MessageCircle size={15} />
-          <span>{post.comments_count} comments</span>
+          <span>{post.comments_count} {t('comments')}</span>
         </button>
       </div>
 
       {/* Comments */}
       {showComments && (
         <div className="space-y-3 pt-2">
-          {/* Comment input */}
           <div className="flex gap-2">
             <Avatar src={null} name={user?.first_name} size={7} />
             <div className="flex-1 flex gap-2">
               <input
                 value={commentText}
                 onChange={e => setCommentText(e.target.value)}
-                placeholder="Write a comment..."
+                placeholder={t('writeComment')}
                 className="input-field text-sm py-1.5 flex-1"
                 onKeyDown={e => e.key === 'Enter' && commentText.trim() && commentMutation.mutate(commentText.trim())}
               />
@@ -204,7 +204,6 @@ function PostCard({ post, user, onEdit, onDelete }) {
             </div>
           </div>
 
-          {/* Comments list */}
           <div className="space-y-3">
             {post.comments?.map(comment => (
               <CommentItem
@@ -212,6 +211,7 @@ function PostCard({ post, user, onEdit, onDelete }) {
                 comment={comment}
                 postId={post.id}
                 user={user}
+                t={t}
                 onDelete={(id) => deleteCommentMutation.mutate(id)}
               />
             ))}
@@ -224,6 +224,7 @@ function PostCard({ post, user, onEdit, onDelete }) {
 
 export default function BlogPage() {
   const { user } = useAuthStore()
+  const t = useLanguageStore(state => state.t)
   const qc = useQueryClient()
   const [createModal, setCreateModal] = useState(false)
   const [editPost, setEditPost] = useState(null)
@@ -244,7 +245,7 @@ export default function BlogPage() {
       return editPost ? blogAPI.update(editPost.id, fd) : blogAPI.create(fd)
     },
     onSuccess: () => {
-      toast.success(editPost ? 'Post updated!' : 'Post created!')
+      toast.success(editPost ? t('update') : t('publish'))
       qc.invalidateQueries(['blog'])
       setCreateModal(false)
       setEditPost(null)
@@ -256,7 +257,7 @@ export default function BlogPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (id) => blogAPI.delete(id),
-    onSuccess: () => { toast.success('Post deleted'); qc.invalidateQueries(['blog']) },
+    onSuccess: () => { toast.success(t('deletePost')); qc.invalidateQueries(['blog']) },
     onError: () => toast.error('Failed to delete post'),
   })
 
@@ -275,18 +276,18 @@ export default function BlogPage() {
     <div className="space-y-6 animate-fade-in max-w-2xl mx-auto">
       <div className="flex items-center justify-between page-header mb-0">
         <div>
-          <h1 className="section-title">Blog</h1>
-          <p className="section-subtitle">Medical insights and health tips</p>
+          <h1 className="section-title">{t('blog')}</h1>
+          <p className="section-subtitle">{t('blogSubtitle')}</p>
         </div>
         {canCreate && (
           <button onClick={() => { setEditPost(null); setForm({ title: '', content: '', image: null }); setImagePreview(null); setCreateModal(true) }} className="btn-primary">
-            <Plus size={16} /> New Post
+            <Plus size={16} /> {t('newPost')}
           </button>
         )}
       </div>
 
       {isLoading ? <LoadingPage /> : posts.length === 0 ? (
-        <EmptyState icon={MessageCircle} title="No posts yet" description={canCreate ? "Be the first to share a medical insight." : "No blog posts available yet."} />
+        <EmptyState icon={MessageCircle} title={t('noPostsYet')} description={canCreate ? t('firstToShare') : t('noPostsAvailable')} />
       ) : (
         <div className="space-y-5">
           {posts.map(post => (
@@ -294,6 +295,7 @@ export default function BlogPage() {
               key={post.id}
               post={post}
               user={user}
+              t={t}
               onEdit={openEdit}
               onDelete={(id) => deleteMutation.mutate(id)}
             />
@@ -302,29 +304,29 @@ export default function BlogPage() {
       )}
 
       {/* Create/Edit Modal */}
-      <Modal open={createModal} onClose={() => { setCreateModal(false); setEditPost(null) }} title={editPost ? 'Edit Post' : 'New Blog Post'} size="md">
+      <Modal open={createModal} onClose={() => { setCreateModal(false); setEditPost(null) }} title={editPost ? t('editPost') : t('newPost')} size="md">
         <div className="space-y-4">
           <div>
-            <label className="label">Title</label>
+            <label className="label">{t('blogTitleLabel')}</label>
             <input
               value={form.title}
               onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
               className="input-field"
-              placeholder="Post title..."
+              placeholder={t('postTitle')}
             />
           </div>
           <div>
-            <label className="label">Content</label>
+            <label className="label">{t('blogContentLabel')}</label>
             <textarea
               value={form.content}
               onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
               className="input-field resize-none"
               rows={6}
-              placeholder="Write your post content..."
+              placeholder={t('postContent')}
             />
           </div>
           <div>
-            <label className="label">Image (optional)</label>
+            <label className="label">{t('blogImageLabel')}</label>
             {imagePreview && (
               <div className="relative mb-2">
                 <img src={imagePreview} className="w-full rounded-xl object-cover max-h-40" alt="preview" />
@@ -348,13 +350,13 @@ export default function BlogPage() {
             />
           </div>
           <div className="flex gap-3 justify-end pt-2">
-            <button onClick={() => { setCreateModal(false); setEditPost(null) }} className="btn-secondary">Cancel</button>
+            <button onClick={() => { setCreateModal(false); setEditPost(null) }} className="btn-secondary">{t('cancel')}</button>
             <button
               onClick={() => createMutation.mutate(form)}
               disabled={!form.title.trim() || !form.content.trim() || createMutation.isPending}
               className="btn-primary"
             >
-              {createMutation.isPending ? <Spinner size={14} /> : (editPost ? 'Update' : 'Publish')}
+              {createMutation.isPending ? <Spinner size={14} /> : (editPost ? t('update') : t('publish'))}
             </button>
           </div>
         </div>

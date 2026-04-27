@@ -139,7 +139,10 @@ export const usersAPI = {
     const isFormData = data instanceof FormData
     return api.post('/users/', data, isFormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : {})
   },
-  update: (id, data) => api.patch(`/users/${id}/`, data),
+  update: (id, data) => {
+    const isFormData = data instanceof FormData
+    return api.patch(`/users/${id}/`, data, isFormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : {})
+  },
   delete: (id) => api.delete(`/users/${id}/`),
   activate: (id) => api.post(`/users/${id}/activate/`),
   verify: (id) => api.post(`/users/${id}/verify/`),

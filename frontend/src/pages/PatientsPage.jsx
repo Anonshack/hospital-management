@@ -1,10 +1,12 @@
 import { useState } from 'react'
+import useLanguageStore from '../store/languageStore'
 import { useQuery } from '@tanstack/react-query'
 import { Users, Eye, Phone, Mail, AlertTriangle } from 'lucide-react'
 import { patientsAPI } from '../services/api'
 import { SearchInput, Pagination, LoadingPage, EmptyState, Modal } from '../components/common/UI'
 
 function PatientDetailModal({ patientId, onClose }) {
+  const t = useLanguageStore(state => state.t)
   const { data: patient, isLoading } = useQuery({
     queryKey: ['patient-detail', patientId],
     queryFn: () => patientsAPI.get(patientId).then(r => r.data),
@@ -12,7 +14,7 @@ function PatientDetailModal({ patientId, onClose }) {
   })
 
   return (
-    <Modal open={!!patientId} onClose={onClose} title="Patient Details" size="md">
+    <Modal open={!!patientId} onClose={onClose} title={t('patientDetails')} size="md">
       {isLoading ? (
         <div className="flex justify-center py-8"><div className="w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" /></div>
       ) : patient ? (
@@ -40,10 +42,10 @@ function PatientDetailModal({ patientId, onClose }) {
           {/* Basic info */}
           <div className="grid grid-cols-2 gap-4">
             {[
-              ['Age', patient.age ? `${patient.age} years` : '—'],
-              ['Date of Birth', patient.date_of_birth || '—'],
-              ['Insurance No.', patient.insurance_number || '—'],
-              ['Address', patient.address || '—'],
+              [t('age'), patient.age ? `${patient.age}` : '—'],
+              [t('dateOfBirth'), patient.date_of_birth || '—'],
+              [t('insurance'), patient.insurance_number || '—'],
+              [t('address'), patient.address || '—'],
             ].map(([label, value]) => (
               <div key={label}>
                 <p className="text-xs text-slate-500 uppercase tracking-wider">{label}</p>
@@ -56,15 +58,15 @@ function PatientDetailModal({ patientId, onClose }) {
           {(patient.emergency_contact_name || patient.emergency_contact_phone) && (
             <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl">
               <p className="text-xs text-amber-400 uppercase tracking-wider font-semibold mb-2 flex items-center gap-1.5">
-                <AlertTriangle size={12} /> Emergency Contact
+                <AlertTriangle size={12} /> {t('emergencyContact')}
               </p>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <p className="text-xs text-slate-500">Name</p>
+                  <p className="text-xs text-slate-500">{t('name')}</p>
                   <p className="text-sm text-slate-200 font-medium">{patient.emergency_contact_name || '—'}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500">Phone</p>
+                  <p className="text-xs text-slate-500">{t('phone')}</p>
                   <p className="text-sm text-slate-200 font-medium">{patient.emergency_contact_phone || '—'}</p>
                 </div>
               </div>
@@ -73,13 +75,13 @@ function PatientDetailModal({ patientId, onClose }) {
 
           {patient.allergies && (
             <div>
-              <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Allergies</p>
+              <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">{t('allergies')}</p>
               <p className="text-sm text-amber-300 bg-amber-900/20 rounded-lg p-3">{patient.allergies}</p>
             </div>
           )}
           {patient.chronic_conditions && (
             <div>
-              <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Chronic Conditions</p>
+              <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">{t('chronicConditions')}</p>
               <p className="text-sm text-slate-300 bg-slate-800/60 rounded-lg p-3">{patient.chronic_conditions}</p>
             </div>
           )}
@@ -90,6 +92,7 @@ function PatientDetailModal({ patientId, onClose }) {
 }
 
 export default function PatientsPage() {
+  const t = useLanguageStore(state => state.t)
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [selectedId, setSelectedId] = useState(null)
@@ -105,22 +108,22 @@ export default function PatientsPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="page-header">
-        <h1 className="section-title">Patients</h1>
-        <p className="section-subtitle">{data?.count ?? ''} registered patients</p>
+        <h1 className="section-title">{t('patients')}</h1>
+        <p className="section-subtitle">{data?.count ?? ''} {t('patientsRegistered')}</p>
       </div>
 
-      <SearchInput value={search} onChange={setSearch} placeholder="Search by name or email..." />
+      <SearchInput value={search} onChange={setSearch} placeholder={t('searchByNameOrEmail')} />
 
       <div className="table-wrapper">
         {isLoading ? <LoadingPage /> : patients.length === 0 ? (
-          <EmptyState icon={Users} title="No patients found" />
+          <EmptyState icon={Users} title={t('noPatients')} />
         ) : (
           <>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr>
-                    {['Name', 'Email', 'Age', 'Blood Group', 'Insurance', 'Actions'].map(h => (
+                    {[t('name'), t('email'), t('age'), t('bloodGroup'), t('insurance'), t('actions')].map(h => (
                       <th key={h} className="table-header">{h}</th>
                     ))}
                   </tr>
@@ -138,7 +141,7 @@ export default function PatientsPage() {
                         </div>
                       </td>
                       <td className="table-cell text-slate-400">{p.email}</td>
-                      <td className="table-cell">{p.age ? `${p.age} yrs` : '—'}</td>
+                      <td className="table-cell">{p.age ? `${p.age}` : '—'}</td>
                       <td className="table-cell">
                         <span className="badge bg-red-500/15 text-red-300 border border-red-500/30">{p.blood_group || '—'}</span>
                       </td>

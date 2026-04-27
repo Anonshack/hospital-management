@@ -1,10 +1,12 @@
 import { useState } from 'react'
+import useLanguageStore from '../store/languageStore'
 import { useQuery } from '@tanstack/react-query'
 import { Stethoscope, MapPin, DollarSign, Award, Mail, Phone, X, Calendar, Clock } from 'lucide-react'
 import { doctorsAPI } from '../services/api'
 import { SearchInput, Pagination, LoadingPage, EmptyState, Modal } from '../components/common/UI'
 
 export default function DoctorsListPage() {
+  const t = useLanguageStore(state => state.t)
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [selectedDoctor, setSelectedDoctor] = useState(null)
@@ -21,21 +23,21 @@ export default function DoctorsListPage() {
     <div className="space-y-6 animate-fade-in">
       <div className="page-header">
         <div>
-          <h1 className="section-title">Doktorlar</h1>
-          <p className="section-subtitle">Barcha doktorlar ro'yxati va ma'lumotlari</p>
+          <h1 className="section-title">{t('doctorsList')}</h1>
+          <p className="section-subtitle">{t('doctorsListFull')}</p>
         </div>
       </div>
 
       <SearchInput 
         value={search} 
         onChange={setSearch} 
-        placeholder="Doktor ismi yoki mutaxassislik bo'yicha qidirish..." 
+        placeholder={t('searchPlaceholder')}
       />
 
       {isLoading ? (
         <LoadingPage />
       ) : doctors.length === 0 ? (
-        <EmptyState icon={Stethoscope} title="Doktorlar topilmadi" />
+        <EmptyState icon={Stethoscope} title={t('noRecordsFound')} />
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -66,7 +68,7 @@ export default function DoctorsListPage() {
                     
                     <div className="flex items-center gap-1 text-xs text-slate-400 mt-2">
                       <Award size={12} />
-                      <span>{doctor.experience_years} yil tajriba</span>
+                      <span>{doctor.experience_years} {t('yearsExperience')}</span>
                     </div>
                   </div>
                 </div>
@@ -81,7 +83,7 @@ export default function DoctorsListPage() {
                   
                   <div className="flex items-center gap-2 text-xs text-slate-400">
                     <DollarSign size={13} className="flex-shrink-0" />
-                    <span>Konsultatsiya: ${doctor.consultation_fee}</span>
+                    <span>{t('consultation')}: ${doctor.consultation_fee}</span>
                   </div>
 
                   <div className="flex items-center gap-2 text-xs">
@@ -90,7 +92,7 @@ export default function DoctorsListPage() {
                         ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' 
                         : 'bg-slate-500/15 text-slate-400 border border-slate-500/30'
                     }`}>
-                      {doctor.is_available ? '✓ Mavjud' : 'Band'}
+                      {doctor.is_available ? `✓ ${t('available')}` : t('notAvailable')}
                     </span>
                   </div>
                 </div>
@@ -108,7 +110,7 @@ export default function DoctorsListPage() {
 
       {/* Doctor Detail Modal */}
       {selectedDoctor && (
-        <Modal open={!!selectedDoctor} onClose={() => setSelectedDoctor(null)} title="Doktor Ma'lumotlari" size="lg">
+        <Modal open={!!selectedDoctor} onClose={() => setSelectedDoctor(null)} title={t('doctorInfo')} size="lg">
           <div className="space-y-6">
             {/* Header */}
             <div className="flex items-start gap-4">
@@ -208,7 +210,7 @@ export default function DoctorsListPage() {
               onClick={() => setSelectedDoctor(null)} 
               className="btn-secondary w-full justify-center"
             >
-              Yopish
+              {t('close')}
             </button>
           </div>
         </Modal>

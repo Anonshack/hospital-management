@@ -1,16 +1,18 @@
 import { useQuery } from '@tanstack/react-query'
 import {
   Users, Stethoscope, Calendar, CreditCard,
-  TrendingUp, Clock, CheckCircle, XCircle, AlertCircle
+  TrendingUp, Clock, CheckCircle, AlertCircle
 } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import useAuthStore from '../store/authStore'
-import { appointmentsAPI, usersAPI, billingAPI, doctorsAPI } from '../services/api'
+import useLanguageStore from '../store/languageStore'
+import { appointmentsAPI, usersAPI, billingAPI } from '../services/api'
 import { StatCard, LoadingPage, StatusBadge } from '../components/common/UI'
 import { format } from 'date-fns'
 
 // ── Admin Dashboard ────────────────────────────────────────────────────────────
 function AdminDashboard() {
+  const t = useLanguageStore(state => state.t)
   const { data: userStats } = useQuery({ queryKey: ['user-stats'], queryFn: () => usersAPI.statistics().then(r => r.data) })
   const { data: apptStats } = useQuery({ queryKey: ['appt-stats'], queryFn: () => appointmentsAPI.statistics().then(r => r.data) })
   const { data: revenue } = useQuery({ queryKey: ['revenue'], queryFn: () => billingAPI.revenueSummary().then(r => r.data) })
@@ -25,30 +27,27 @@ function AdminDashboard() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="page-header">
-        <h1 className="section-title">Admin Dashboard</h1>
-        <p className="section-subtitle">Hospital overview and key metrics</p>
+        <h1 className="section-title">{t('adminDashboard')}</h1>
+        <p className="section-subtitle">{t('hospitalOverview')}</p>
       </div>
 
-      {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatCard label="Total Patients" value={userStats?.by_role?.patient ?? '—'} icon={Users} color="blue" />
-        <StatCard label="Active Doctors" value={userStats?.by_role?.doctor ?? '—'} icon={Stethoscope} color="green" />
-        <StatCard label="Today's Appointments" value={apptStats?.today ?? '—'} icon={Calendar} color="amber" />
-        <StatCard label="Monthly Revenue" value={`$${Number(revenue?.monthly_revenue || 0).toLocaleString()}`} icon={CreditCard} color="purple" />
+        <StatCard label={t('totalPatients')} value={userStats?.by_role?.patient ?? '—'} icon={Users} color="blue" />
+        <StatCard label={t('activeDoctors')} value={userStats?.by_role?.doctor ?? '—'} icon={Stethoscope} color="green" />
+        <StatCard label={t('todayAppointments')} value={apptStats?.today ?? '—'} icon={Calendar} color="amber" />
+        <StatCard label={t('monthlyRevenue')} value={`$${Number(revenue?.monthly_revenue || 0).toLocaleString()}`} icon={CreditCard} color="purple" />
       </div>
 
-      {/* Secondary stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatCard label="Total Revenue" value={`$${Number(revenue?.total_revenue || 0).toLocaleString()}`} icon={TrendingUp} color="green" />
-        <StatCard label="Pending Appointments" value={apptStats?.by_status?.pending ?? '—'} icon={Clock} color="amber" />
-        <StatCard label="Unpaid Bills" value={`$${Number(revenue?.unpaid_total || 0).toLocaleString()}`} icon={AlertCircle} color="red" />
+        <StatCard label={t('totalRevenue')} value={`$${Number(revenue?.total_revenue || 0).toLocaleString()}`} icon={TrendingUp} color="green" />
+        <StatCard label={t('pendingAppointments')} value={apptStats?.by_status?.pending ?? '—'} icon={Clock} color="amber" />
+        <StatCard label={t('unpaidBills')} value={`$${Number(revenue?.unpaid_total || 0).toLocaleString()}`} icon={AlertCircle} color="red" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Appointment status chart */}
         {pieData.length > 0 && (
           <div className="glass-card p-6">
-            <h3 className="text-base font-semibold text-white mb-4">Appointments by Status</h3>
+            <h3 className="text-base font-semibold text-white mb-4">{t('appointmentsByStatus')}</h3>
             <ResponsiveContainer width="100%" height={200}>
               <PieChart>
                 <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={4} dataKey="value">
@@ -68,10 +67,9 @@ function AdminDashboard() {
           </div>
         )}
 
-        {/* Recent appointments */}
         <div className="glass-card lg:col-span-2 overflow-hidden">
           <div className="px-6 py-4 border-b border-slate-700/40">
-            <h3 className="text-base font-semibold text-white">Recent Appointments</h3>
+            <h3 className="text-base font-semibold text-white">{t('recentAppointments')}</h3>
           </div>
           <div className="divide-y divide-slate-700/30">
             {(recent?.results || recent || []).slice(0, 6).map(appt => (
@@ -92,32 +90,32 @@ function AdminDashboard() {
 
 // ── Doctor Dashboard ───────────────────────────────────────────────────────────
 function DoctorDashboard() {
-  const { data: upcoming } = useQuery({ queryKey: ['upcoming-appts'], queryFn: () => appointmentsAPI.upcoming().then(r => r.data) })
+  const t = useLanguageStore(state => state.t)
   const { data: today } = useQuery({ queryKey: ['today-appts'], queryFn: () => appointmentsAPI.today().then(r => r.data) })
   const { user } = useAuthStore()
 
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="page-header">
-        <h1 className="section-title">Good morning, {user?.full_name?.split(' ')[0]} 👋</h1>
+        <h1 className="section-title">{t('goodMorning')}, {user?.full_name?.split(' ')[0]} 👋</h1>
         <p className="section-subtitle">{format(new Date(), 'EEEE, MMMM d, yyyy')}</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatCard label="Today's Appointments" value={today?.length ?? '—'} icon={Calendar} color="blue" />
-        <StatCard label="Pending Approval" value={(today || []).filter(a => a.status === 'pending').length} icon={Clock} color="amber" />
-        <StatCard label="Completed Today" value={(today || []).filter(a => a.status === 'completed').length} icon={CheckCircle} color="green" />
+        <StatCard label={t('todayAppointments')} value={today?.length ?? '—'} icon={Calendar} color="blue" />
+        <StatCard label={t('pendingApproval')} value={(today || []).filter(a => a.status === 'pending').length} icon={Clock} color="amber" />
+        <StatCard label={t('completedToday')} value={(today || []).filter(a => a.status === 'completed').length} icon={CheckCircle} color="green" />
       </div>
 
       <div className="glass-card overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-700/40">
-          <h3 className="text-base font-semibold text-white">Today's Schedule</h3>
+          <h3 className="text-base font-semibold text-white">{t('todaySchedule')}</h3>
         </div>
         <div className="divide-y divide-slate-700/30">
           {(today || []).length === 0 ? (
             <div className="px-6 py-12 text-center">
               <Calendar size={28} className="mx-auto text-slate-600 mb-2" />
-              <p className="text-slate-500 text-sm">No appointments today</p>
+              <p className="text-slate-500 text-sm">{t('noAppointmentsToday')}</p>
             </div>
           ) : (today || []).map(appt => (
             <div key={appt.id} className="px-6 py-4 flex items-center justify-between">
@@ -127,7 +125,7 @@ function DoctorDashboard() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-slate-200">{appt.patient_name}</p>
-                  <p className="text-xs text-slate-500">{appt.reason || 'General consultation'}</p>
+                  <p className="text-xs text-slate-500">{appt.reason || t('generalConsultation')}</p>
                 </div>
               </div>
               <StatusBadge status={appt.status} />
@@ -141,6 +139,7 @@ function DoctorDashboard() {
 
 // ── Patient Dashboard ──────────────────────────────────────────────────────────
 function PatientDashboard() {
+  const t = useLanguageStore(state => state.t)
   const { data: upcoming } = useQuery({ queryKey: ['patient-upcoming'], queryFn: () => appointmentsAPI.upcoming().then(r => r.data) })
   const { data: bills } = useQuery({ queryKey: ['patient-bills'], queryFn: () => billingAPI.myBills().then(r => r.data) })
 
@@ -150,22 +149,22 @@ function PatientDashboard() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="page-header">
-        <h1 className="section-title">My Health Dashboard</h1>
+        <h1 className="section-title">{t('myHealthDashboard')}</h1>
         <p className="section-subtitle">{format(new Date(), 'EEEE, MMMM d, yyyy')}</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatCard label="Upcoming Appointments" value={upcoming?.length ?? '—'} icon={Calendar} color="blue" />
-        <StatCard label="Unpaid Bills" value={unpaidCount} icon={CreditCard} color={unpaidCount > 0 ? 'red' : 'green'} />
-        <StatCard label="Total Appointments" value={(bills || []).length} icon={CheckCircle} color="green" />
+        <StatCard label={t('upcomingAppointments')} value={upcoming?.length ?? '—'} icon={Calendar} color="blue" />
+        <StatCard label={t('unpaidBills')} value={unpaidCount} icon={CreditCard} color={unpaidCount > 0 ? 'red' : 'green'} />
+        <StatCard label={t('totalAppointmentsCount')} value={(bills || []).length} icon={CheckCircle} color="green" />
       </div>
 
       {nextAppt && (
         <div className="glass-card p-6 border-l-4 border-primary-500">
-          <p className="text-xs font-semibold text-primary-400 uppercase tracking-wider mb-2">Next Appointment</p>
+          <p className="text-xs font-semibold text-primary-400 uppercase tracking-wider mb-2">{t('nextAppointment')}</p>
           <p className="text-lg font-display font-semibold text-white">Dr. {nextAppt.doctor_name}</p>
           <p className="text-slate-400 text-sm mt-1">
-            {nextAppt.date} at {nextAppt.time?.slice(0, 5)} · {nextAppt.reason || 'General consultation'}
+            {nextAppt.date} {t('at')} {nextAppt.time?.slice(0, 5)} · {nextAppt.reason || t('generalConsultation')}
           </p>
           <StatusBadge status={nextAppt.status} />
         </div>
@@ -173,19 +172,19 @@ function PatientDashboard() {
 
       <div className="glass-card overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-700/40">
-          <h3 className="text-base font-semibold text-white">Upcoming Appointments</h3>
+          <h3 className="text-base font-semibold text-white">{t('upcomingAppointments')}</h3>
         </div>
         <div className="divide-y divide-slate-700/30">
           {(upcoming || []).length === 0 ? (
             <div className="px-6 py-10 text-center">
               <Calendar size={28} className="mx-auto text-slate-600 mb-2" />
-              <p className="text-slate-500 text-sm">No upcoming appointments</p>
+              <p className="text-slate-500 text-sm">{t('noUpcomingAppointments')}</p>
             </div>
           ) : (upcoming || []).map(appt => (
             <div key={appt.id} className="px-6 py-4 flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-slate-200">Dr. {appt.doctor_name}</p>
-                <p className="text-xs text-slate-500">{appt.date} at {appt.time?.slice(0, 5)}</p>
+                <p className="text-xs text-slate-500">{appt.date} {t('at')} {appt.time?.slice(0, 5)}</p>
               </div>
               <StatusBadge status={appt.status} />
             </div>
@@ -198,22 +197,23 @@ function PatientDashboard() {
 
 // ── Staff Dashboard ────────────────────────────────────────────────────────────
 function StaffDashboard() {
+  const t = useLanguageStore(state => state.t)
   const { data: today } = useQuery({ queryKey: ['today-appts'], queryFn: () => appointmentsAPI.today().then(r => r.data) })
 
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="page-header">
-        <h1 className="section-title">Staff Dashboard</h1>
+        <h1 className="section-title">{t('staffDashboard')}</h1>
         <p className="section-subtitle">{format(new Date(), 'EEEE, MMMM d, yyyy')}</p>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatCard label="Today's Appointments" value={today?.length ?? '—'} icon={Calendar} color="blue" />
-        <StatCard label="Pending" value={(today || []).filter(a => a.status === 'pending').length} icon={Clock} color="amber" />
-        <StatCard label="Approved" value={(today || []).filter(a => a.status === 'approved').length} icon={CheckCircle} color="green" />
+        <StatCard label={t('todayAppointments')} value={today?.length ?? '—'} icon={Calendar} color="blue" />
+        <StatCard label={t('pending')} value={(today || []).filter(a => a.status === 'pending').length} icon={Clock} color="amber" />
+        <StatCard label={t('approved')} value={(today || []).filter(a => a.status === 'approved').length} icon={CheckCircle} color="green" />
       </div>
       <div className="glass-card overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-700/40">
-          <h3 className="text-base font-semibold text-white">Today's Appointments</h3>
+          <h3 className="text-base font-semibold text-white">{t('todayAppointments')}</h3>
         </div>
         <div className="divide-y divide-slate-700/30">
           {(today || []).map(appt => (
